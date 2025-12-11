@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="draftnexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4B72FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00D4A6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M16 2L28.6 9V23L16 30L3.4 23V9L16 2Z" stroke="url(#draftnexGradient)" stroke-width="2" fill="none"/>
+  <path d="M10 12H14C17.3137 12 20 14.6863 20 18C20 21.3137 17.3137 24 14 24H10V12Z" fill="url(#draftnexGradient)"/>
+  <path d="M13 15V21" stroke="#0F0F11" stroke-width="2" stroke-linecap="round"/>
+</svg>

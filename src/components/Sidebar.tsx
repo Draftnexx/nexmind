@@ -1,4 +1,4 @@
-import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote, Sparkles } from "lucide-react";
+import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote } from "lucide-react";
 import { NoteCategory } from "../types/note";
 
 interface SidebarProps {
@@ -44,10 +44,8 @@ export default function Sidebar({
     <div className="w-64 bg-dark-bg border-r border-border-dark flex flex-col h-screen">
       {/* Logo */}
       <div className="p-6 border-b border-border-dark">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-            <Sparkles size={18} className="text-white" />
-          </div>
+        <div className="flex items-center gap-3">
+          <img src="/logo.svg" alt="Draftnex Logo" className="w-10 h-10" />
           <div>
             <h1 className="text-xl font-display font-bold text-text-primary">NexMind</h1>
             <p className="text-[10px] text-text-muted">The Memory That Thinks</p>
