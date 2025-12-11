@@ -4,12 +4,11 @@ import { ChatMessage } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
 import {
-  analyzeComplexInput,
-  extractEntitiesWithTopics,
   generateEmbedding,
   interpretChatCommand,
   getAIChatReplyV2
 } from "../services/ai";
+import { analyzeUserInput } from "../services/nlpPipeline";
 import {
   loadGraph,
   saveGraph,
@@ -20,6 +19,33 @@ import {
 } from "../services/graph";
 import { loadNotes } from "../storage/localStorage";
 import ChatBubble from "../components/ChatBubble";
+
+/**
+ * Formats an ISO date string to a readable format
+ */
+function formatDate(isoDate: string): string {
+  try {
+    const date = new Date(isoDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Heute";
+    if (diffDays === 1) return "Morgen";
+    if (diffDays === -1) return "Gestern";
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} Tagen`;
+    if (diffDays < -1 && diffDays >= -7) return `Vor ${Math.abs(diffDays)} Tagen`;
+
+    return date.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return isoDate;
+  }
+}
 
 export default function ChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,84 +108,110 @@ export default function ChatView() {
 
       // 2. Wenn es eine normale Nachricht ist (keine Query), speichere als Notiz(en)
       if (command.type === "normal") {
-        // MULTI-INTENT PARSER: Analyze and potentially split
-        const multiIntentResult = await analyzeComplexInput(userContent);
+        // UNIFIED NLP PIPELINE V6: Single AI analysis
+        const nlpResult = await analyzeUserInput(userContent);
 
         const graph = loadGraph();
         let allNotes = loadNotes();
         const createdNoteIds: string[] = [];
 
-        // Process each detected intent
-        for (const item of multiIntentResult.items) {
-          const extendedEntities = await extractEntitiesWithTopics(item.content);
-          const embedding = await generateEmbedding(item.content);
+        // Process each NLP item
+        for (const nlpItem of nlpResult.items) {
+          const embedding = await generateEmbedding(nlpItem.content);
 
           const newNoteId = generateId();
           createdNoteIds.push(newNoteId);
 
-          let taskFields = {};
-          if (item.category === "task") {
-            taskFields = {
-              status: "open",
-              priority: item.priority || "medium",
-              dueDate: item.dueDate || null,
-            };
-          }
-
           const newNote = {
             id: newNoteId,
-            content: item.content,
-            category: item.category,
+            content: nlpItem.content,
+            category: nlpItem.category,
             createdAt: new Date().toISOString(),
             entities: {
-              persons: extendedEntities.persons,
-              places: extendedEntities.places,
-              projects: extendedEntities.projects,
-              topics: extendedEntities.topics,
+              persons: nlpItem.entities.persons,
+              places: nlpItem.entities.places,
+              projects: nlpItem.entities.projects,
+              topics: nlpItem.entities.topics,
             },
             embedding,
-            categoryConfidence: item.confidence,
-            categoryReason: item.reasoning,
-            ...taskFields,
+            categoryConfidence: 0.9,
+            categoryReason: nlpItem.reasoning || "NLP Pipeline",
+            // Task-specific fields
+            ...(nlpItem.category === "task" ? {
+              status: "open",
+              priority: nlpItem.priority || "medium",
+              dueDate: nlpItem.dueDate || null,
+            } : {}),
           };
 
           addNote(newNote);
-          allNotes = loadNotes(); // Reload after each add
+          allNotes = loadNotes();
 
           // Update Knowledge Graph
           addNoteToGraph(newNote, graph);
           addEntityNodes(newNote, graph);
-          addTopicNodes(newNote, extendedEntities.topics, graph);
+          addTopicNodes(newNote, nlpItem.entities.topics, graph);
           addSimilarityEdges(newNote, allNotes, graph);
         }
 
         saveGraph(graph);
 
-        noteId = createdNoteIds[0]; // First note ID for reference
+        noteId = createdNoteIds[0];
 
-        console.log(`✨ Chat created ${multiIntentResult.items.length} note(s)`);
-        if (multiIntentResult.originalHadMultipleIntents) {
-          console.log(`✂️ Multi-task detected and split!`);
-        }
+        console.log(`✨ Chat created ${nlpResult.items.length} note(s) via NLP Pipeline`);
         console.log(`📊 Knowledge Graph updated from Chat`);
 
         // 3. Intelligente AI-Antwort generieren
         let replyText: string;
 
-        if (multiIntentResult.originalHadMultipleIntents) {
-          // Special reply for multi-tasks
-          replyText = `Perfekt! Ich habe ${multiIntentResult.items.length} separate Notizen erstellt:\n\n`;
-          multiIntentResult.items.forEach((item, index) => {
-            const emoji = item.category === "task" ? "✅" : item.category === "event" ? "📅" : item.category === "idea" ? "💡" : "📝";
-            replyText += `${emoji} ${item.content.substring(0, 60)}${item.content.length > 60 ? "..." : ""}\n`;
+        if (nlpResult.items.length > 1) {
+          // Multi-item reply with detailed breakdown
+          replyText = `Verstanden! Ich habe ${nlpResult.items.length} Einträge angelegt:\n\n`;
+
+          nlpResult.items.forEach((item, index) => {
+            const emoji = item.category === "task" ? "✅" : item.category === "event" ? "📅" : item.category === "idea" ? "💡" : item.category === "person" ? "👤" : "📝";
+
+            let itemText = `${index + 1}. ${emoji} ${item.content}`;
+
+            // Add details
+            const details: string[] = [];
+            if (item.dueDate) details.push(`Fällig: ${formatDate(item.dueDate)}`);
+            if (item.priority && item.category === "task") details.push(`Priorität: ${item.priority === "high" ? "Hoch" : item.priority === "medium" ? "Mittel" : "Niedrig"}`);
+            if (item.entities.persons.length > 0) details.push(`Person: ${item.entities.persons.join(", ")}`);
+            if (item.entities.projects.length > 0) details.push(`Projekt: ${item.entities.projects.join(", ")}`);
+
+            if (details.length > 0) {
+              itemText += `\n   (${details.join(", ")})`;
+            }
+
+            replyText += itemText + "\n\n";
           });
-        } else {
+
+          if (nlpResult.contextSummary) {
+            replyText += `💡 ${nlpResult.contextSummary}`;
+          }
+        } else if (nlpResult.items.length === 1) {
+          // Single item - use AI for natural reply
           replyText = await getAIChatReplyV2(
             userContent,
             command,
-            multiIntentResult.items[0].category,
-            multiIntentResult.items[0].confidence
+            nlpResult.items[0].category,
+            0.9
           );
+
+          // Add details if available
+          const item = nlpResult.items[0];
+          const details: string[] = [];
+          if (item.dueDate) details.push(`📅 Fällig: ${formatDate(item.dueDate)}`);
+          if (item.priority) details.push(`⚡ Priorität: ${item.priority}`);
+          if (item.entities.projects.length > 0) details.push(`📁 Projekt: ${item.entities.projects.join(", ")}`);
+
+          if (details.length > 0) {
+            replyText += `\n\n${details.join(" • ")}`;
+          }
+        } else {
+          // Fallback
+          replyText = "Notiz gespeichert! 📝";
         }
 
         const assistantMessage: ChatMessage = {
