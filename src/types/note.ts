@@ -11,6 +11,7 @@ export interface Note {
     persons: string[];
     places: string[];
     projects: string[];
+    topics?: string[]; // V3: Topics für Knowledge Graph
   };
   embedding?: number[];
   categoryConfidence?: number;
@@ -45,4 +46,38 @@ export interface ChatMessage {
   role: "user" | "assistant";
   timestamp: string;
   noteId?: string;
+}
+
+/**
+ * INTELLIGENCE LAYER V3: Knowledge Graph Types
+ */
+
+export type NodeType = "note" | "person" | "place" | "project" | "topic";
+export type EdgeType = "mentions" | "relatedTo" | "similarTo" | "topicOf" | "projectOf";
+
+export interface GraphNode {
+  id: string;
+  type: NodeType;
+  label: string;
+  embedding?: number[];
+  metadata?: {
+    noteId?: string;
+    category?: NoteCategory;
+    createdAt?: string;
+    count?: number; // For entity nodes: how many notes reference this
+  };
+}
+
+export interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: EdgeType;
+  strength: number; // 0.0 to 1.0
+}
+
+export interface KnowledgeGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  lastUpdated: string;
 }

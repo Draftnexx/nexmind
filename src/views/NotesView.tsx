@@ -1,10 +1,19 @@
 import { useState, useEffect } from "react";
-import { Search, Sparkles, Zap } from "lucide-react";
+import { Search, Sparkles, Zap, Network } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { classifyNoteSemanticV2, extractEntities, generateEmbedding } from "../services/ai";
+import { classifyNoteSemanticV2, extractEntitiesWithTopics, generateEmbedding } from "../services/ai";
 import { findSimilarNotes } from "../services/embeddings";
+import {
+  loadGraph,
+  saveGraph,
+  addNoteToGraph,
+  addEntityNodes,
+  addTopicNodes,
+  addSimilarityEdges,
+  findSimilarNotesFromGraph,
+} from "../services/graph";
 import NoteItem from "../components/NoteItem";
 import NoteInput from "../components/NoteInput";
 
@@ -28,8 +37,8 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
       // INTELLIGENCE LAYER V2: Semantic Classification
       const classification = await classifyNoteSemanticV2(content);
 
-      // INTELLIGENCE LAYER V2: Entity Extraction
-      const entities = await extractEntities(content);
+      // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
+      const extendedEntities = await extractEntitiesWithTopics(content);
 
       // INTELLIGENCE LAYER V2: Generate Embedding
       const embedding = await generateEmbedding(content);
@@ -39,7 +48,12 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
         content,
         category: classification.category,
         createdAt: new Date().toISOString(),
-        entities,
+        entities: {
+          persons: extendedEntities.persons,
+          places: extendedEntities.places,
+          projects: extendedEntities.projects,
+          topics: extendedEntities.topics,
+        },
         embedding,
         categoryConfidence: classification.confidence,
         categoryReason: classification.reason,
@@ -48,10 +62,33 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
       const updatedNotes = addNote(newNote);
       setNotes(updatedNotes);
 
+      // INTELLIGENCE LAYER V3: Update Knowledge Graph
+      console.log("📊 Updating Knowledge Graph...");
+      const graph = loadGraph();
+
+      // Add note node
+      addNoteToGraph(newNote, graph);
+
+      // Add entity nodes (persons, places, projects)
+      addEntityNodes(newNote, graph);
+
+      // Add topic nodes
+      addTopicNodes(newNote, extendedEntities.topics, graph);
+
+      // Add similarity edges
+      addSimilarityEdges(newNote, updatedNotes, graph);
+
+      // Save updated graph
+      saveGraph(graph);
+
+      // Find similar notes from graph
+      const similarNotes = findSimilarNotesFromGraph(newNote.id, graph, 3);
+
       console.log(`✨ Note classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
       console.log(`📝 Reason: ${classification.reason}`);
-      console.log(`🏷️ Entities:`, entities);
+      console.log(`🏷️ Entities:`, extendedEntities);
       console.log(`🔢 All confidences:`, classification.allCategoryConfidences);
+      console.log(`🔗 Similar notes:`, similarNotes);
     } catch (error) {
       console.error("Error adding note:", error);
     } finally {
