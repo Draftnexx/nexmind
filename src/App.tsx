@@ -55,7 +55,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-dark-bg overflow-hidden">
       <Sidebar
         activeView={activeView}
         onViewChange={handleViewChange}

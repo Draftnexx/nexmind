@@ -1,4 +1,4 @@
-import { Bot, User } from "lucide-react";
+import { Bot, User, Sparkles } from "lucide-react";
 import { ChatMessage } from "../types/note";
 
 interface ChatBubbleProps {
@@ -17,30 +17,32 @@ export default function ChatBubble({ message }: ChatBubbleProps) {
   };
 
   return (
-    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} animate-in fade-in slide-in-from-bottom-4 duration-300`}>
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-          isUser ? "bg-primary" : "bg-accent"
+        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${
+          isUser
+            ? "bg-gradient-to-br from-primary to-primary/80"
+            : "bg-gradient-to-br from-accent to-accent/80"
         }`}
       >
-        {isUser ? <User size={18} className="text-white" /> : <Bot size={18} className="text-white" />}
+        {isUser ? (
+          <User size={20} className="text-white" />
+        ) : (
+          <Sparkles size={20} className="text-white" />
+        )}
       </div>
 
       {/* Message */}
       <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-[70%]`}>
         <div
-          className={`px-4 py-3 rounded-2xl ${
-            isUser
-              ? "bg-primary text-white rounded-tr-sm"
-              : "bg-gray-100 text-gray-800 rounded-tl-sm"
-          }`}
+          className={isUser ? "chat-bubble-user" : "chat-bubble-ai"}
         >
           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
             {message.content}
           </p>
         </div>
-        <span className="text-xs text-gray-400 mt-1 px-1">
+        <span className="text-xs text-text-muted mt-1.5 px-1">
           {formatTime(message.timestamp)}
         </span>
       </div>

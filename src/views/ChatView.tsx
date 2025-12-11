@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { ChatMessage } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
-import { classifyNote, generateId } from "../utils/classifyNote";
+import { generateId } from "../utils/classifyNote";
+import { classifyNoteAI, getAIChatReply } from "../services/ai";
 import ChatBubble from "../components/ChatBubble";
 
 export default function ChatView() {
@@ -56,39 +57,28 @@ export default function ChatView() {
     const updatedMessages = addChatMessage(userMessage);
     setMessages([...updatedMessages]);
 
-    // Simuliere KI-Verarbeitung
-    setTimeout(() => {
-      // Notiz erstellen und klassifizieren
-      const category = classifyNote(userContent);
+    // Echte AI-Verarbeitung mit Groq (oder Fallback)
+    try {
+      // 1. Klassifizieren mit AI
+      const result = await classifyNoteAI(userContent);
       const noteId = generateId();
 
+      // 2. Notiz speichern
       addNote({
         id: noteId,
         content: userContent,
-        category,
+        category: result.category,
         createdAt: new Date().toISOString(),
       });
 
-      // KI-Antwort
-      const categoryLabels = {
-        task: "Aufgabe",
-        event: "Termin",
-        idea: "Idee",
-        info: "Info",
-        person: "Person",
-      };
+      console.log(`✨ Chat message classified as "${result.category}" with ${Math.round(result.confidence * 100)}% confidence`);
 
-      const responses = {
-        task: "Verstanden! Ich habe das als Aufgabe gespeichert. ✅",
-        event: "Notiert! Ich habe den Termin für dich festgehalten. 📅",
-        idea: "Tolle Idee! Ich habe sie gespeichert. 💡",
-        info: "Danke für die Info! Habe ich notiert. 📝",
-        person: "Kontakt gespeichert! 👤",
-      };
+      // 3. Intelligente AI-Antwort generieren
+      const replyText = await getAIChatReply(userContent, result.category, result.confidence);
 
       const assistantMessage: ChatMessage = {
         id: generateId(),
-        content: `${responses[category]} Kategorisiert als: ${categoryLabels[category]}`,
+        content: replyText,
         role: "assistant",
         timestamp: new Date().toISOString(),
         noteId,
@@ -96,8 +86,11 @@ export default function ChatView() {
 
       const finalMessages = addChatMessage(assistantMessage);
       setMessages([...finalMessages]);
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+    } finally {
       setIsProcessing(false);
-    }, 800);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

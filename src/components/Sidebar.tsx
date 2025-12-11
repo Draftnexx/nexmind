@@ -1,4 +1,4 @@
-import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote } from "lucide-react";
+import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote, Sparkles } from "lucide-react";
 import { NoteCategory } from "../types/note";
 
 interface SidebarProps {
@@ -41,16 +41,23 @@ export default function Sidebar({
   categoryCounts,
 }: SidebarProps) {
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
+    <div className="w-64 bg-dark-bg border-r border-border-dark flex flex-col h-screen">
       {/* Logo */}
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-2xl font-display font-bold text-primary">NexMind</h1>
-        <p className="text-xs text-gray-500 mt-1">The Memory That Thinks</p>
+      <div className="p-6 border-b border-border-dark">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+            <Sparkles size={18} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-display font-bold text-text-primary">NexMind</h1>
+            <p className="text-[10px] text-text-muted">The Memory That Thinks</p>
+          </div>
+        </div>
       </div>
 
       {/* Navigation */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="space-y-1">
+      <div className="p-4 border-b border-border-dark">
+        <div className="space-y-1.5">
           {(["notes", "chat", "brain"] as const).map((view) => {
             const Icon = viewIcons[view];
             const isActive = activeView === view;
@@ -58,14 +65,14 @@ export default function Sidebar({
               <button
                 key={view}
                 onClick={() => onViewChange(view)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
                   isActive
-                    ? "bg-primary text-white"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary/20 text-primary border-l-4 border-primary shadow-glow-primary"
+                    : "text-text-secondary hover:bg-dark-elevated hover:text-text-primary"
                 }`}
               >
                 <Icon size={20} />
-                <span className="font-medium capitalize">
+                <span className="font-medium">
                   {view === "brain" ? "Brain Report" : view === "notes" ? "Notizen" : "Chat"}
                 </span>
               </button>
@@ -77,7 +84,7 @@ export default function Sidebar({
       {/* Categories (only show in notes view) */}
       {activeView === "notes" && (
         <div className="flex-1 overflow-y-auto p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-3">
+          <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-3 px-2">
             Kategorien
           </h3>
           <div className="space-y-1">
@@ -90,10 +97,10 @@ export default function Sidebar({
                 <button
                   key={cat}
                   onClick={() => onCategoryChange(cat)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-colors ${
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all ${
                     isActive
-                      ? "bg-gray-100 text-gray-900"
-                      : "text-gray-600 hover:bg-gray-50"
+                      ? "bg-dark-elevated text-text-primary border border-primary/30"
+                      : "text-text-secondary hover:bg-dark-surface hover:text-text-primary"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -102,7 +109,11 @@ export default function Sidebar({
                       {categoryLabels[cat]}
                     </span>
                   </div>
-                  <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    isActive
+                      ? "bg-primary/20 text-primary"
+                      : "bg-dark-elevated text-text-muted"
+                  }`}>
                     {count}
                   </span>
                 </button>
@@ -113,9 +124,9 @@ export default function Sidebar({
       )}
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
-        <p className="text-xs text-gray-400 text-center">
-          © 2024 Draftnex Solutions
+      <div className="p-4 border-t border-border-dark">
+        <p className="text-xs text-text-muted text-center">
+          © 2025 <span className="text-primary font-medium">Draftnex Solutions</span>
         </p>
       </div>
     </div>

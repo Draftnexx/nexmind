@@ -6,33 +6,61 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+    @apply bg-dark-bg text-text-primary font-sans antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
   }
+
+  * {
+    @apply transition-colors duration-200 ease-out;
+  }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-600 transition-colors;
+    @apply bg-primary text-white px-4 py-2.5 rounded-2xl font-medium
+           hover:bg-primary/90 active:scale-95
+           transition-all duration-200 ease-out
+           shadow-lg hover:shadow-glow-primary;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium hover:bg-gray-300 transition-colors;
+    @apply bg-dark-elevated text-text-primary px-4 py-2.5 rounded-2xl font-medium
+           hover:bg-dark-elevated/80 border border-border-dark
+           transition-all duration-200 ease-out;
   }
 
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-200;
+    @apply bg-dark-surface rounded-2xl border border-border-dark
+           transition-all duration-200 ease-out;
+  }
+
+  .card-elevated {
+    @apply bg-dark-elevated rounded-3xl border border-border-dark
+           shadow-draftnex transition-all duration-200 ease-out;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all;
+    @apply w-full px-4 py-3 rounded-2xl
+           bg-dark-elevated border border-border-dark
+           text-text-primary placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-primary
+           focus:border-transparent transition-all duration-200;
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    @apply shadow-glow-primary;
+  }
+
+  .glow-accent {
+    @apply shadow-glow-accent;
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Draftnex Style */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -43,10 +71,100 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D4D4D4;
+  background: #2A2A2E;
   border-radius: 4px;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #A3A3A3;
+  background: #4B72FF;
+}
+
+/* Typing dots animation */
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Sparkle glow animation */
+@keyframes sparkle-glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(180deg);
+  }
+}
+
+.sparkle-glow {
+  animation: sparkle-glow 2s ease-in-out infinite;
+}
+
+/* Note card hover effect */
+.note-card {
+  @apply card p-4 hover:bg-dark-elevated hover:border-primary/30
+         hover:shadow-glow-primary cursor-pointer
+         transition-all duration-200;
+}
+
+/* Chat bubble styles */
+.chat-bubble-user {
+  @apply bg-primary text-white rounded-3xl rounded-br-none px-5 py-3
+         shadow-lg;
+}
+
+.chat-bubble-ai {
+  @apply bg-dark-elevated border border-border-dark text-text-primary
+         rounded-3xl rounded-bl-none px-5 py-3
+         shadow-lg;
+}
+
+/* Category badges */
+.badge-task {
+  @apply bg-cat-task/20 text-cat-task border border-cat-task/30;
+}
+
+.badge-event {
+  @apply bg-cat-event/20 text-cat-event border border-cat-event/30;
+}
+
+.badge-idea {
+  @apply bg-cat-idea/20 text-cat-idea border border-cat-idea/30;
+}
+
+.badge-info {
+  @apply bg-cat-info/20 text-cat-info border border-cat-info/30;
+}
+
+.badge-person {
+  @apply bg-cat-person/20 text-cat-person border border-cat-person/30;
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #4B72FF 0%, #00D4A6 100%);
+}
+
+.gradient-surface {
+  background: linear-gradient(135deg, #121214 0%, #1A1A1D 100%);
 }
