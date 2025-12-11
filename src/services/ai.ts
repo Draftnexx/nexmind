@@ -15,6 +15,14 @@ interface EntityExtractionResult {
   persons: string[];
   places: string[];
   projects: string[];
+  topics?: string[];
+}
+
+interface ExtendedEntityExtractionResult {
+  persons: string[];
+  places: string[];
+  projects: string[];
+  topics: string[];
 }
 
 /**
@@ -870,4 +878,86 @@ function getCategoryInsight(category: NoteCategory, count: number): string {
     person: `${count} Kontakte dokumentiert - Networking läuft!`,
   };
   return insights[category];
+}
+
+/**
+ * INTELLIGENCE LAYER V3: Erweiterte Entity Extraction MIT Topics
+ */
+export async function extractEntitiesWithTopics(text: string): Promise<ExtendedEntityExtractionResult> {
+  if (!hasGroqApiKey()) {
+    return { persons: [], places: [], projects: [], topics: [] };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `Du bist ein Entity-Extraction-Spezialist für Knowledge Graphs. Extrahiere folgende Entitäten aus Text:
+
+- persons: Namen von Personen
+- places: Orte, Städte, Locations
+- projects: Projekt-Namen, Produkt-Namen, Firmen
+- topics: Themen, Konzepte, Technologien, Kategorien (z.B. "AI", "Marketing", "React", "Fitness", "Finanzplanung")
+
+Antworte IMMER im JSON-Format:
+{
+  "persons": ["Name1", "Name2"],
+  "places": ["Ort1", "Ort2"],
+  "projects": ["Projekt1", "Projekt2"],
+  "topics": ["Thema1", "Thema2", "Thema3"]
+}
+
+Wenn keine Entitäten gefunden werden, gib leere Arrays zurück.
+Topics sollten allgemeine Konzepte sein, nicht spezifische Details.`
+          },
+          {
+            role: "user",
+            content: `Extrahiere Entitäten und Topics aus folgendem Text:\n\n"${text}"`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 400,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("No content in API response");
+    }
+
+    const result = JSON.parse(content);
+
+    console.log("🏷️ Extended Entities extracted:", result);
+
+    return {
+      persons: result.persons || [],
+      places: result.places || [],
+      projects: result.projects || [],
+      topics: result.topics || [],
+    };
+
+  } catch (error) {
+    console.warn("⚠️ Extended entity extraction failed:", error);
+    return { persons: [], places: [], projects: [], topics: [] };
+  }
 }

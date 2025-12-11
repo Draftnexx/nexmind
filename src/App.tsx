@@ -3,10 +3,11 @@ import Sidebar from "./components/Sidebar";
 import NotesView from "./views/NotesView";
 import ChatView from "./views/ChatView";
 import BrainReportView from "./views/BrainReportView";
+import GraphView from "./views/GraphView";
 import { NoteCategory } from "./types/note";
 import { loadNotes } from "./storage/localStorage";
 
-type View = "notes" | "chat" | "brain";
+type View = "notes" | "chat" | "brain" | "graph";
 
 function App() {
   const [activeView, setActiveView] = useState<View>("notes");
@@ -68,6 +69,7 @@ function App() {
         {activeView === "notes" && <NotesView selectedCategory={selectedCategory} />}
         {activeView === "chat" && <ChatView />}
         {activeView === "brain" && <BrainReportView />}
+        {activeView === "graph" && <GraphView />}
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote } from "lucide-react";
+import { CheckSquare, Calendar, Lightbulb, FileText, User, BarChart3, MessageSquare, StickyNote, Network } from "lucide-react";
 import { NoteCategory } from "../types/note";
 
 interface SidebarProps {
@@ -13,6 +13,7 @@ const viewIcons = {
   notes: StickyNote,
   chat: MessageSquare,
   brain: BarChart3,
+  graph: Network,
 };
 
 const categoryIcons = {
@@ -56,7 +57,7 @@ export default function Sidebar({
       {/* Navigation */}
       <div className="p-4 border-b border-border-dark">
         <div className="space-y-1.5">
-          {(["notes", "chat", "brain"] as const).map((view) => {
+          {(["notes", "chat", "brain", "graph"] as const).map((view) => {
             const Icon = viewIcons[view];
             const isActive = activeView === view;
             return (
@@ -71,7 +72,13 @@ export default function Sidebar({
               >
                 <Icon size={20} />
                 <span className="font-medium">
-                  {view === "brain" ? "Brain Report" : view === "notes" ? "Notizen" : "Chat"}
+                  {view === "brain"
+                    ? "Brain Report"
+                    : view === "notes"
+                    ? "Notizen"
+                    : view === "graph"
+                    ? "Knowledge Graph"
+                    : "Chat"}
                 </span>
               </button>
             );

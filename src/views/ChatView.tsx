@@ -5,11 +5,20 @@ import { loadChatMessages, addChatMessage, addNote } from "../storage/localStora
 import { generateId } from "../utils/classifyNote";
 import {
   classifyNoteSemanticV2,
-  extractEntities,
+  extractEntitiesWithTopics,
   generateEmbedding,
   interpretChatCommand,
   getAIChatReplyV2
 } from "../services/ai";
+import {
+  loadGraph,
+  saveGraph,
+  addNoteToGraph,
+  addEntityNodes,
+  addTopicNodes,
+  addSimilarityEdges,
+} from "../services/graph";
+import { loadNotes } from "../storage/localStorage";
 import ChatBubble from "../components/ChatBubble";
 
 export default function ChatView() {
@@ -76,8 +85,8 @@ export default function ChatView() {
         // Klassifizieren mit AI (V2)
         const classification = await classifyNoteSemanticV2(userContent);
 
-        // Entity Extraction
-        const entities = await extractEntities(userContent);
+        // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
+        const extendedEntities = await extractEntitiesWithTopics(userContent);
 
         // Generate Embedding
         const embedding = await generateEmbedding(userContent);
@@ -85,19 +94,38 @@ export default function ChatView() {
         noteId = generateId();
 
         // Notiz speichern
-        addNote({
+        const newNote = {
           id: noteId,
           content: userContent,
           category: classification.category,
           createdAt: new Date().toISOString(),
-          entities,
+          entities: {
+            persons: extendedEntities.persons,
+            places: extendedEntities.places,
+            projects: extendedEntities.projects,
+            topics: extendedEntities.topics,
+          },
           embedding,
           categoryConfidence: classification.confidence,
           categoryReason: classification.reason,
-        });
+        };
+
+        addNote(newNote);
+
+        // INTELLIGENCE LAYER V3: Update Knowledge Graph
+        const graph = loadGraph();
+        const allNotes = loadNotes();
+
+        addNoteToGraph(newNote, graph);
+        addEntityNodes(newNote, graph);
+        addTopicNodes(newNote, extendedEntities.topics, graph);
+        addSimilarityEdges(newNote, allNotes, graph);
+
+        saveGraph(graph);
 
         console.log(`✨ Chat message classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
-        console.log(`🏷️ Entities:`, entities);
+        console.log(`🏷️ Extended Entities:`, extendedEntities);
+        console.log(`📊 Knowledge Graph updated from Chat`);
 
         // 3. Intelligente AI-Antwort generieren (V2)
         const replyText = await getAIChatReplyV2(
