@@ -1,24 +1,45 @@
 import { useEffect, useState } from "react";
-import { TrendingUp, Calendar, Sparkles, CheckSquare, Lightbulb, User, FileText } from "lucide-react";
+import { TrendingUp, Calendar, Sparkles, CheckSquare, Lightbulb, User, FileText, Brain, Target } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes } from "../storage/localStorage";
+import { generateBrainReportInsights, BrainReportInsights } from "../services/ai";
 import CategoryBadge from "../components/CategoryBadge";
 
 export default function BrainReportView() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [weekNotes, setWeekNotes] = useState<Note[]>([]);
+  const [aiInsights, setAiInsights] = useState<BrainReportInsights | null>(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
   useEffect(() => {
-    const allNotes = loadNotes();
-    setNotes(allNotes);
+    const loadData = async () => {
+      const allNotes = loadNotes();
+      setNotes(allNotes);
 
-    // Filter notes from last 7 days
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const recentNotes = allNotes.filter(
-      (note) => new Date(note.createdAt) >= sevenDaysAgo
-    );
-    setWeekNotes(recentNotes);
+      // Filter notes from last 7 days
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const recentNotes = allNotes.filter(
+        (note) => new Date(note.createdAt) >= sevenDaysAgo
+      );
+      setWeekNotes(recentNotes);
+
+      // INTELLIGENCE LAYER V2: Generate AI Insights
+      if (recentNotes.length > 0) {
+        setIsLoadingInsights(true);
+        try {
+          const insights = await generateBrainReportInsights(allNotes, recentNotes);
+          setAiInsights(insights);
+          console.log("🧠 Brain Report Insights:", insights);
+        } catch (error) {
+          console.error("Error generating insights:", error);
+        } finally {
+          setIsLoadingInsights(false);
+        }
+      }
+    };
+
+    loadData();
   }, []);
 
   const getCategoryCount = (category: NoteCategory) => {
@@ -189,6 +210,163 @@ export default function BrainReportView() {
               })}
             </div>
           </div>
+
+          {/* AI Insights - INTELLIGENCE LAYER V2 */}
+          {isLoadingInsights && (
+            <div className="card-elevated p-8 text-center">
+              <div className="inline-flex items-center gap-3 text-accent">
+                <Brain size={28} className="animate-pulse" />
+                <Sparkles size={24} className="animate-spin" />
+                <span className="text-lg font-medium">KI analysiert deine Woche...</span>
+              </div>
+            </div>
+          )}
+
+          {aiInsights && !isLoadingInsights && (
+            <>
+              {/* AI Summary */}
+              <div className="card-elevated p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-accent/10 rounded-xl">
+                    <Brain size={24} className="text-accent" />
+                  </div>
+                  <h3 className="text-lg font-display font-semibold text-text-primary">
+                    KI-Analyse deiner Woche
+                  </h3>
+                </div>
+                <p className="text-text-primary text-base leading-relaxed mb-4">
+                  {aiInsights.weekSummary}
+                </p>
+                <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                  <Target size={20} className="text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary mb-1">
+                      Empfohlener Fokus
+                    </p>
+                    <p className="text-text-primary">
+                      {aiInsights.recommendedFocus}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Insights List */}
+              {aiInsights.insights.length > 0 && (
+                <div className="card-elevated p-6">
+                  <h3 className="text-lg font-display font-semibold text-text-primary mb-4">
+                    Wichtige Erkenntnisse
+                  </h3>
+                  <div className="space-y-3">
+                    {aiInsights.insights.map((insight, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start gap-3 p-4 bg-dark-elevated rounded-xl border border-border-dark"
+                      >
+                        <Sparkles size={18} className="text-accent mt-0.5 flex-shrink-0" />
+                        <p className="text-text-primary text-sm">{insight}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Open Tasks from AI */}
+              {aiInsights.openTasks.length > 0 && (
+                <div className="card-elevated p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <CheckSquare size={22} className="text-cat-task" />
+                    <h3 className="text-lg font-display font-semibold text-text-primary">
+                      Offene Aufgaben
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {aiInsights.openTasks.map((task, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-dark-elevated rounded-xl border border-border-dark"
+                      >
+                        <div className="w-5 h-5 rounded border-2 border-cat-task flex-shrink-0" />
+                        <p className="text-text-primary text-sm">{task}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Entities */}
+              {(aiInsights.topEntities.persons.length > 0 ||
+                aiInsights.topEntities.places.length > 0 ||
+                aiInsights.topEntities.projects.length > 0) && (
+                <div className="card-elevated p-6">
+                  <h3 className="text-lg font-display font-semibold text-text-primary mb-4">
+                    Wichtige Entitäten
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {aiInsights.topEntities.persons.length > 0 && (
+                      <div className="p-4 bg-dark-elevated rounded-xl border border-border-dark">
+                        <div className="flex items-center gap-2 mb-3">
+                          <User size={18} className="text-cat-person" />
+                          <span className="text-sm font-medium text-text-secondary">
+                            Personen
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiInsights.topEntities.persons.map((person, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 bg-cat-person/10 text-cat-person text-xs font-medium rounded-full"
+                            >
+                              {person}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {aiInsights.topEntities.places.length > 0 && (
+                      <div className="p-4 bg-dark-elevated rounded-xl border border-border-dark">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar size={18} className="text-cat-event" />
+                          <span className="text-sm font-medium text-text-secondary">
+                            Orte
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiInsights.topEntities.places.map((place, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 bg-cat-event/10 text-cat-event text-xs font-medium rounded-full"
+                            >
+                              {place}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {aiInsights.topEntities.projects.length > 0 && (
+                      <div className="p-4 bg-dark-elevated rounded-xl border border-border-dark">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FileText size={18} className="text-cat-info" />
+                          <span className="text-sm font-medium text-text-secondary">
+                            Projekte
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiInsights.topEntities.projects.map((project, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 bg-cat-info/10 text-cat-info text-xs font-medium rounded-full"
+                            >
+                              {project}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Top Ideas */}
           {topIdeas.length > 0 && (
