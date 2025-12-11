@@ -1,0 +1,33 @@
+export type NoteCategory = "task" | "event" | "idea" | "info" | "person";
+
+export interface Note {
+  id: string;
+  content: string;
+  category: NoteCategory;
+  createdAt: string;
+  updatedAt?: string;
+  relatedNoteIds?: string[];
+}
+
+export interface CategoryInfo {
+  id: NoteCategory;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+export const CATEGORIES: CategoryInfo[] = [
+  { id: "task", label: "Aufgaben", icon: "CheckSquare", color: "bg-blue-100 text-blue-700" },
+  { id: "event", label: "Termine", icon: "Calendar", color: "bg-purple-100 text-purple-700" },
+  { id: "idea", label: "Ideen", icon: "Lightbulb", color: "bg-yellow-100 text-yellow-700" },
+  { id: "info", label: "Infos", icon: "FileText", color: "bg-green-100 text-green-700" },
+  { id: "person", label: "Personen", icon: "User", color: "bg-pink-100 text-pink-700" },
+];
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  role: "user" | "assistant";
+  timestamp: string;
+  noteId?: string;
+}
