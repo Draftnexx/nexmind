@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Sparkles, Zap } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
-import { loadNotes, addNote, deleteNote, searchNotes } from "../storage/localStorage";
+import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
 import { classifyNoteAI } from "../services/ai";
 import NoteItem from "../components/NoteItem";
@@ -69,16 +69,16 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-gray-50">
+    <div className="flex-1 flex flex-col h-screen bg-dark-bg">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
+      <div className="bg-dark-surface border-b border-border-dark px-8 py-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-display font-bold text-gray-900">
+              <h2 className="text-2xl font-display font-bold text-text-primary">
                 Notizen
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-text-secondary mt-1">
                 {filteredNotes.length} {filteredNotes.length === 1 ? "Notiz" : "Notizen"}
               </p>
             </div>
@@ -95,14 +95,14 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
           <div className="relative">
             <Search
               size={20}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Notizen durchsuchen..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-dark-elevated border border-border-dark text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
         </div>
@@ -116,14 +116,14 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
 
           {/* Notes */}
           {filteredNotes.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                <Sparkles size={28} className="text-gray-400" />
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-elevated border border-border-dark mb-6">
+                <Sparkles size={32} className="text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              <h3 className="text-xl font-display font-semibold text-text-primary mb-2">
                 Keine Notizen gefunden
               </h3>
-              <p className="text-gray-500">
+              <p className="text-text-secondary">
                 {searchQuery
                   ? "Versuche einen anderen Suchbegriff"
                   : "Erstelle deine erste Notiz oben"}

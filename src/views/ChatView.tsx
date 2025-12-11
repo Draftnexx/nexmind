@@ -101,12 +101,12 @@ export default function ChatView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-gray-50">
+    <div className="flex-1 flex flex-col h-screen bg-dark-bg">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
+      <div className="bg-dark-surface border-b border-border-dark px-8 py-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-display font-bold text-gray-900">Chat</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-2xl font-display font-bold text-text-primary">Chat</h2>
+          <p className="text-sm text-text-secondary mt-1">
             Sprich mit NexMind – deine Nachrichten werden automatisch als Notizen gespeichert
           </p>
         </div>
@@ -121,14 +121,14 @@ export default function ChatView() {
 
           {isProcessing && (
             <div className="flex gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                <Sparkles size={18} className="text-white animate-pulse" />
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent/80 flex items-center justify-center shadow-lg">
+                <Sparkles size={20} className="text-white animate-pulse" />
               </div>
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-100 rounded-2xl rounded-tl-sm">
+              <div className="flex items-center gap-2 px-5 py-3 bg-dark-elevated border border-border-dark rounded-3xl rounded-bl-none shadow-lg">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="typing-dot w-2 h-2 bg-accent rounded-full" />
+                  <div className="typing-dot w-2 h-2 bg-accent rounded-full" />
+                  <div className="typing-dot w-2 h-2 bg-accent rounded-full" />
                 </div>
               </div>
             </div>
@@ -139,7 +139,7 @@ export default function ChatView() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-8 py-6">
+      <div className="bg-dark-surface border-t border-border-dark px-8 py-6">
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSend} className="flex gap-3">
             <input
@@ -149,12 +149,12 @@ export default function ChatView() {
               onKeyDown={handleKeyDown}
               placeholder="Schreib deine Nachricht..."
               disabled={isProcessing}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
+              className="flex-1 px-5 py-3 rounded-2xl bg-dark-elevated border border-border-dark text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             />
             <button
               type="submit"
               disabled={!input.trim() || isProcessing}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary disabled:opacity-30 disabled:cursor-not-allowed px-6"
             >
               <Send size={20} />
             </button>
