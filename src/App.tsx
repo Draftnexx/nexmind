@@ -5,10 +5,11 @@ import ChatView from "./views/ChatView";
 import BrainReportView from "./views/BrainReportView";
 import GraphView from "./views/GraphView";
 import TaskDashboardView from "./views/TaskDashboardView";
+import AISuggestionsView from "./views/AISuggestionsView";
 import { NoteCategory } from "./types/note";
 import { loadNotes } from "./storage/localStorage";
 
-type View = "notes" | "chat" | "brain" | "graph" | "tasks";
+type View = "notes" | "chat" | "brain" | "graph" | "tasks" | "ai";
 
 function App() {
   const [activeView, setActiveView] = useState<View>("notes");
@@ -72,6 +73,7 @@ function App() {
         {activeView === "brain" && <BrainReportView />}
         {activeView === "graph" && <GraphView />}
         {activeView === "tasks" && <TaskDashboardView />}
+        {activeView === "ai" && <AISuggestionsView />}
       </main>
     </div>
   );
