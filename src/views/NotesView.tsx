@@ -3,7 +3,7 @@ import { Search, Sparkles, Zap, Network } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { classifyNoteSemanticV2, extractEntitiesWithTopics, generateEmbedding, analyzeTaskMeta } from "../services/ai";
+import { analyzeComplexInput, extractEntitiesWithTopics, generateEmbedding, analyzeTaskMeta } from "../services/ai";
 import { findSimilarNotes } from "../services/embeddings";
 import {
   loadGraph,
@@ -34,74 +34,82 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
     setIsClassifying(true);
 
     try {
-      // INTELLIGENCE LAYER V2: Semantic Classification
-      const classification = await classifyNoteSemanticV2(content);
+      // MULTI-INTENT PARSER: Analyze and potentially split into multiple notes
+      const multiIntentResult = await analyzeComplexInput(content);
 
-      // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
-      const extendedEntities = await extractEntitiesWithTopics(content);
+      console.log(`🎯 Multi-Intent Analysis: ${multiIntentResult.items.length} items detected`);
 
-      // INTELLIGENCE LAYER V2: Generate Embedding
-      const embedding = await generateEmbedding(content);
-
-      // PRODUCTIVITY INTELLIGENCE V4: Analyze task meta if it's a task
-      let taskMeta = null;
-      if (classification.category === "task") {
-        taskMeta = await analyzeTaskMeta(content);
-        console.log("📋 Task Meta:", taskMeta);
+      if (multiIntentResult.originalHadMultipleIntents) {
+        console.log(`✂️ Input was split into ${multiIntentResult.items.length} separate notes`);
       }
 
-      const newNote: Note = {
-        id: generateId(),
-        content,
-        category: classification.category,
-        createdAt: new Date().toISOString(),
-        entities: {
-          persons: extendedEntities.persons,
-          places: extendedEntities.places,
-          projects: extendedEntities.projects,
-          topics: extendedEntities.topics,
-        },
-        embedding,
-        categoryConfidence: classification.confidence,
-        categoryReason: classification.reason,
-        // Productivity Intelligence V4: Add task fields
-        ...(classification.category === "task" && taskMeta ? {
-          status: "open",
-          priority: taskMeta.priority,
-          dueDate: taskMeta.dueDate,
-        } : {}),
-      };
-
-      const updatedNotes = addNote(newNote);
-      setNotes(updatedNotes);
-
-      // INTELLIGENCE LAYER V3: Update Knowledge Graph
-      console.log("📊 Updating Knowledge Graph...");
+      let updatedNotes = loadNotes();
       const graph = loadGraph();
 
-      // Add note node
-      addNoteToGraph(newNote, graph);
+      // Process each detected intent/item
+      for (const item of multiIntentResult.items) {
+        // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
+        const extendedEntities = await extractEntitiesWithTopics(item.content);
 
-      // Add entity nodes (persons, places, projects)
-      addEntityNodes(newNote, graph);
+        // INTELLIGENCE LAYER V2: Generate Embedding
+        const embedding = await generateEmbedding(item.content);
 
-      // Add topic nodes
-      addTopicNodes(newNote, extendedEntities.topics, graph);
+        // PRODUCTIVITY INTELLIGENCE V4: Task meta (priority/dueDate)
+        let taskFields = {};
+        if (item.category === "task") {
+          if (item.priority || item.dueDate) {
+            // Already analyzed by multi-intent parser
+            taskFields = {
+              status: "open",
+              priority: item.priority || "medium",
+              dueDate: item.dueDate || null,
+            };
+          } else {
+            // Fallback: analyze separately
+            const taskMeta = await analyzeTaskMeta(item.content);
+            taskFields = {
+              status: "open",
+              priority: taskMeta.priority,
+              dueDate: taskMeta.dueDate,
+            };
+          }
+        }
 
-      // Add similarity edges
-      addSimilarityEdges(newNote, updatedNotes, graph);
+        const newNote: Note = {
+          id: generateId(),
+          content: item.content,
+          category: item.category,
+          createdAt: new Date().toISOString(),
+          entities: {
+            persons: extendedEntities.persons,
+            places: extendedEntities.places,
+            projects: extendedEntities.projects,
+            topics: extendedEntities.topics,
+          },
+          embedding,
+          categoryConfidence: item.confidence,
+          categoryReason: item.reasoning,
+          ...taskFields,
+        };
 
-      // Save updated graph
+        updatedNotes = addNote(newNote);
+
+        // INTELLIGENCE LAYER V3: Update Knowledge Graph
+        addNoteToGraph(newNote, graph);
+        addEntityNodes(newNote, graph);
+        addTopicNodes(newNote, extendedEntities.topics, graph);
+        addSimilarityEdges(newNote, updatedNotes, graph);
+
+        console.log(`✨ Created note: "${item.category}" - ${item.content.substring(0, 50)}...`);
+      }
+
+      // Save graph once after all notes
       saveGraph(graph);
 
-      // Find similar notes from graph
-      const similarNotes = findSimilarNotesFromGraph(newNote.id, graph, 3);
+      // Update UI
+      setNotes(updatedNotes);
 
-      console.log(`✨ Note classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
-      console.log(`📝 Reason: ${classification.reason}`);
-      console.log(`🏷️ Entities:`, extendedEntities);
-      console.log(`🔢 All confidences:`, classification.allCategoryConfidences);
-      console.log(`🔗 Similar notes:`, similarNotes);
+      console.log(`📊 Knowledge Graph updated with ${multiIntentResult.items.length} notes`);
     } catch (error) {
       console.error("Error adding note:", error);
     } finally {
