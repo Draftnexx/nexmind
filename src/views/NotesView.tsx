@@ -3,7 +3,8 @@ import { Search, Sparkles, Zap } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { classifyNoteAI } from "../services/ai";
+import { classifyNoteSemanticV2, extractEntities, generateEmbedding } from "../services/ai";
+import { findSimilarNotes } from "../services/embeddings";
 import NoteItem from "../components/NoteItem";
 import NoteInput from "../components/NoteInput";
 
@@ -24,23 +25,33 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
     setIsClassifying(true);
 
     try {
-      // Echte AI-Klassifizierung mit Groq API (oder Fallback auf Mock-KI)
-      const result = await classifyNoteAI(content);
+      // INTELLIGENCE LAYER V2: Semantic Classification
+      const classification = await classifyNoteSemanticV2(content);
+
+      // INTELLIGENCE LAYER V2: Entity Extraction
+      const entities = await extractEntities(content);
+
+      // INTELLIGENCE LAYER V2: Generate Embedding
+      const embedding = await generateEmbedding(content);
 
       const newNote: Note = {
         id: generateId(),
         content,
-        category: result.category,
+        category: classification.category,
         createdAt: new Date().toISOString(),
+        entities,
+        embedding,
+        categoryConfidence: classification.confidence,
+        categoryReason: classification.reason,
       };
 
       const updatedNotes = addNote(newNote);
       setNotes(updatedNotes);
 
-      console.log(`✨ Note classified as "${result.category}" with ${Math.round(result.confidence * 100)}% confidence`);
-      if (result.reasoning) {
-        console.log(`📝 Reasoning: ${result.reasoning}`);
-      }
+      console.log(`✨ Note classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
+      console.log(`📝 Reason: ${classification.reason}`);
+      console.log(`🏷️ Entities:`, entities);
+      console.log(`🔢 All confidences:`, classification.allCategoryConfidences);
     } catch (error) {
       console.error("Error adding note:", error);
     } finally {

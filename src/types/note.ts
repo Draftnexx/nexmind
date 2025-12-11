@@ -7,6 +7,21 @@ export interface Note {
   createdAt: string;
   updatedAt?: string;
   relatedNoteIds?: string[];
+  entities?: {
+    persons: string[];
+    places: string[];
+    projects: string[];
+  };
+  embedding?: number[];
+  categoryConfidence?: number;
+  categoryReason?: string;
+}
+
+export interface SemanticClassification {
+  category: NoteCategory;
+  confidence: number;
+  reason: string;
+  allCategoryConfidences: Record<NoteCategory, number>;
 }
 
 export interface CategoryInfo {

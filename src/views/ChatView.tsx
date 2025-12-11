@@ -3,7 +3,13 @@ import { Send, Sparkles } from "lucide-react";
 import { ChatMessage } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { classifyNoteAI, getAIChatReply } from "../services/ai";
+import {
+  classifyNoteSemanticV2,
+  extractEntities,
+  generateEmbedding,
+  interpretChatCommand,
+  getAIChatReplyV2
+} from "../services/ai";
 import ChatBubble from "../components/ChatBubble";
 
 export default function ChatView() {
@@ -57,35 +63,79 @@ export default function ChatView() {
     const updatedMessages = addChatMessage(userMessage);
     setMessages([...updatedMessages]);
 
-    // Echte AI-Verarbeitung mit Groq (oder Fallback)
+    // INTELLIGENCE LAYER V2: Chat mit Command-Interpretation
     try {
-      // 1. Klassifizieren mit AI
-      const result = await classifyNoteAI(userContent);
-      const noteId = generateId();
+      // 1. Interpretiere Kommando
+      const command = await interpretChatCommand(userContent);
+      console.log("🎯 Command interpreted:", command);
 
-      // 2. Notiz speichern
-      addNote({
-        id: noteId,
-        content: userContent,
-        category: result.category,
-        createdAt: new Date().toISOString(),
-      });
+      let noteId: string | undefined;
 
-      console.log(`✨ Chat message classified as "${result.category}" with ${Math.round(result.confidence * 100)}% confidence`);
+      // 2. Wenn es eine normale Nachricht ist (keine Query), speichere als Notiz
+      if (command.type === "normal") {
+        // Klassifizieren mit AI (V2)
+        const classification = await classifyNoteSemanticV2(userContent);
 
-      // 3. Intelligente AI-Antwort generieren
-      const replyText = await getAIChatReply(userContent, result.category, result.confidence);
+        // Entity Extraction
+        const entities = await extractEntities(userContent);
 
-      const assistantMessage: ChatMessage = {
-        id: generateId(),
-        content: replyText,
-        role: "assistant",
-        timestamp: new Date().toISOString(),
-        noteId,
-      };
+        // Generate Embedding
+        const embedding = await generateEmbedding(userContent);
 
-      const finalMessages = addChatMessage(assistantMessage);
-      setMessages([...finalMessages]);
+        noteId = generateId();
+
+        // Notiz speichern
+        addNote({
+          id: noteId,
+          content: userContent,
+          category: classification.category,
+          createdAt: new Date().toISOString(),
+          entities,
+          embedding,
+          categoryConfidence: classification.confidence,
+          categoryReason: classification.reason,
+        });
+
+        console.log(`✨ Chat message classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
+        console.log(`🏷️ Entities:`, entities);
+
+        // 3. Intelligente AI-Antwort generieren (V2)
+        const replyText = await getAIChatReplyV2(
+          userContent,
+          command,
+          classification.category,
+          classification.confidence
+        );
+
+        const assistantMessage: ChatMessage = {
+          id: generateId(),
+          content: replyText,
+          role: "assistant",
+          timestamp: new Date().toISOString(),
+          noteId,
+        };
+
+        const finalMessages = addChatMessage(assistantMessage);
+        setMessages([...finalMessages]);
+      } else {
+        // Es ist eine Query - gebe intelligente Antwort
+        const replyText = await getAIChatReplyV2(
+          userContent,
+          command,
+          "info", // Dummy category für Queries
+          1.0
+        );
+
+        const assistantMessage: ChatMessage = {
+          id: generateId(),
+          content: replyText,
+          role: "assistant",
+          timestamp: new Date().toISOString(),
+        };
+
+        const finalMessages = addChatMessage(assistantMessage);
+        setMessages([...finalMessages]);
+      }
     } catch (error) {
       console.error("Error processing chat message:", error);
     } finally {
