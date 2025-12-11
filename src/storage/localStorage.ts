@@ -1,4 +1,4 @@
-import { Note, ChatMessage } from "../types/note";
+import { Note, ChatMessage, TaskStatus, TaskPriority } from "../types/note";
 
 const NOTES_KEY = "nexmind_notes";
 const CHAT_KEY = "nexmind_chat";
@@ -123,4 +123,78 @@ export function addChatMessage(message: ChatMessage): ChatMessage[] {
   messages.push(message);
   saveChatMessages(messages);
   return messages;
+}
+
+// Productivity Intelligence V4: Task Management Functions
+
+/**
+ * Updates task status
+ */
+export function updateTaskStatus(noteId: string, status: TaskStatus): Note[] {
+  return updateNote(noteId, { status });
+}
+
+/**
+ * Updates task priority
+ */
+export function updateTaskPriority(noteId: string, priority: TaskPriority): Note[] {
+  return updateNote(noteId, { priority });
+}
+
+/**
+ * Updates task due date
+ */
+export function updateTaskDueDate(noteId: string, dueDate: string | null): Note[] {
+  return updateNote(noteId, { dueDate });
+}
+
+/**
+ * Gets all tasks (notes with category "task")
+ */
+export function getTasks(): Note[] {
+  const notes = loadNotes();
+  return notes.filter(note => note.category === "task");
+}
+
+/**
+ * Gets tasks by status
+ */
+export function getTasksByStatus(status: TaskStatus): Note[] {
+  return getTasks().filter(task => (task.status || "open") === status);
+}
+
+/**
+ * Gets tasks by priority
+ */
+export function getTasksByPriority(priority: TaskPriority): Note[] {
+  return getTasks().filter(task => (task.priority || "medium") === priority);
+}
+
+/**
+ * Gets overdue tasks
+ */
+export function getOverdueTasks(): Note[] {
+  const today = new Date().toISOString().split('T')[0];
+  return getTasks().filter(task => {
+    if (!task.dueDate || (task.status || "open") === "done") return false;
+    return task.dueDate < today;
+  });
+}
+
+/**
+ * Gets tasks due today
+ */
+export function getTasksDueToday(): Note[] {
+  const today = new Date().toISOString().split('T')[0];
+  return getTasks().filter(task => {
+    if ((task.status || "open") === "done") return false;
+    return task.dueDate === today;
+  });
+}
+
+/**
+ * Gets open tasks (not done)
+ */
+export function getOpenTasks(): Note[] {
+  return getTasks().filter(task => (task.status || "open") !== "done");
 }

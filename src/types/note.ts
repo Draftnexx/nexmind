@@ -1,5 +1,9 @@
 export type NoteCategory = "task" | "event" | "idea" | "info" | "person";
 
+// Productivity Intelligence V4: Task Management Types
+export type TaskStatus = "open" | "in_progress" | "done";
+export type TaskPriority = "low" | "medium" | "high";
+
 export interface Note {
   id: string;
   content: string;
@@ -16,6 +20,11 @@ export interface Note {
   embedding?: number[];
   categoryConfidence?: number;
   categoryReason?: string;
+
+  // Productivity Intelligence V4: Task-specific fields
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  dueDate?: string | null; // ISO date string or null
 }
 
 export interface SemanticClassification {
