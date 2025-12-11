@@ -3,7 +3,8 @@ import { Search, Sparkles, Zap, Network } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { analyzeComplexInput, extractEntitiesWithTopics, generateEmbedding, analyzeTaskMeta } from "../services/ai";
+import { analyzeUserInput } from "../services/nlpPipeline";
+import { generateEmbedding } from "../services/ai";
 import { findSimilarNotes } from "../services/embeddings";
 import {
   loadGraph,
@@ -34,73 +35,68 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
     setIsClassifying(true);
 
     try {
-      // MULTI-INTENT PARSER: Analyze and potentially split into multiple notes
-      const multiIntentResult = await analyzeComplexInput(content);
+      // UNIFIED NLP PIPELINE V6: Single AI analysis for everything
+      console.log("🧠 Running unified NLP pipeline...");
+      const nlpResult = await analyzeUserInput(content);
 
-      console.log(`🎯 Multi-Intent Analysis: ${multiIntentResult.items.length} items detected`);
+      console.log(`🎯 NLP Analysis: ${nlpResult.items.length} items detected`);
 
-      if (multiIntentResult.originalHadMultipleIntents) {
-        console.log(`✂️ Input was split into ${multiIntentResult.items.length} separate notes`);
+      if (nlpResult.items.length > 1) {
+        console.log(`✂️ Input split into ${nlpResult.items.length} separate notes`);
       }
 
       let updatedNotes = loadNotes();
       const graph = loadGraph();
 
-      // Process each detected intent/item
-      for (const item of multiIntentResult.items) {
-        // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
-        const extendedEntities = await extractEntitiesWithTopics(item.content);
+      // Process each NLP item
+      for (const nlpItem of nlpResult.items) {
+        // Generate embedding for semantic search
+        const embedding = await generateEmbedding(nlpItem.content);
 
-        // INTELLIGENCE LAYER V2: Generate Embedding
-        const embedding = await generateEmbedding(item.content);
-
-        // PRODUCTIVITY INTELLIGENCE V4: Task meta (priority/dueDate)
-        let taskFields = {};
-        if (item.category === "task") {
-          if (item.priority || item.dueDate) {
-            // Already analyzed by multi-intent parser
-            taskFields = {
-              status: "open",
-              priority: item.priority || "medium",
-              dueDate: item.dueDate || null,
-            };
-          } else {
-            // Fallback: analyze separately
-            const taskMeta = await analyzeTaskMeta(item.content);
-            taskFields = {
-              status: "open",
-              priority: taskMeta.priority,
-              dueDate: taskMeta.dueDate,
-            };
-          }
-        }
-
+        // Create Note from NlpItem
         const newNote: Note = {
           id: generateId(),
-          content: item.content,
-          category: item.category,
+          content: nlpItem.content,
+          category: nlpItem.category,
           createdAt: new Date().toISOString(),
           entities: {
-            persons: extendedEntities.persons,
-            places: extendedEntities.places,
-            projects: extendedEntities.projects,
-            topics: extendedEntities.topics,
+            persons: nlpItem.entities.persons,
+            places: nlpItem.entities.places,
+            projects: nlpItem.entities.projects,
+            topics: nlpItem.entities.topics,
           },
           embedding,
-          categoryConfidence: item.confidence,
-          categoryReason: item.reasoning,
-          ...taskFields,
+          categoryConfidence: 0.9, // NLP pipeline is high confidence
+          categoryReason: nlpItem.reasoning || "NLP Pipeline Analysis",
+          // Task-specific fields
+          ...(nlpItem.category === "task" ? {
+            status: "open",
+            priority: nlpItem.priority || "medium",
+            dueDate: nlpItem.dueDate || null,
+          } : {}),
         };
 
         updatedNotes = addNote(newNote);
 
-        // INTELLIGENCE LAYER V3: Update Knowledge Graph
+        // Update Knowledge Graph
         addNoteToGraph(newNote, graph);
         addEntityNodes(newNote, graph);
-        addTopicNodes(newNote, extendedEntities.topics, graph);
+        addTopicNodes(newNote, nlpItem.entities.topics, graph);
         addSimilarityEdges(newNote, updatedNotes, graph);
 
-        console.log(`✨ Created note: "${item.category}" - ${item.content.substring(0, 50)}...`);
+        console.log(`✨ Created note: "${nlpItem.category}" - ${nlpItem.content.substring(0, 50)}...`);
+        if (nlpItem.dueDate) {
+          console.log(`   📅 Due: ${nlpItem.dueDate}`);
+        }
+        if (nlpItem.priority) {
+          console.log(`   ⚡ Priority: ${nlpItem.priority}`);
+        }
+        if (nlpItem.entities.persons.length > 0) {
+          console.log(`   👤 Persons: ${nlpItem.entities.persons.join(", ")}`);
+        }
+        if (nlpItem.entities.projects.length > 0) {
+          console.log(`   📁 Projects: ${nlpItem.entities.projects.join(", ")}`);
+        }
       }
 
       // Save graph once after all notes
@@ -109,9 +105,26 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
       // Update UI
       setNotes(updatedNotes);
 
-      console.log(`📊 Knowledge Graph updated with ${multiIntentResult.items.length} notes`);
+      console.log(`📊 Knowledge Graph updated with ${nlpResult.items.length} notes`);
+      if (nlpResult.contextSummary) {
+        console.log(`📝 Context: ${nlpResult.contextSummary}`);
+      }
     } catch (error) {
-      console.error("Error adding note:", error);
+      console.error("Error in NLP pipeline:", error);
+
+      // Fallback: create simple info note
+      const simpleNote: Note = {
+        id: generateId(),
+        content,
+        category: "info",
+        createdAt: new Date().toISOString(),
+        entities: { persons: [], places: [], projects: [], topics: [] },
+        categoryConfidence: 0.5,
+        categoryReason: "Fallback due to error",
+      };
+
+      const updatedNotes = addNote(simpleNote);
+      setNotes(updatedNotes);
     } finally {
       setIsClassifying(false);
     }
