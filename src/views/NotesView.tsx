@@ -3,7 +3,7 @@ import { Search, Sparkles, Zap, Network } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
-import { classifyNoteSemanticV2, extractEntitiesWithTopics, generateEmbedding } from "../services/ai";
+import { classifyNoteSemanticV2, extractEntitiesWithTopics, generateEmbedding, analyzeTaskMeta } from "../services/ai";
 import { findSimilarNotes } from "../services/embeddings";
 import {
   loadGraph,
@@ -43,6 +43,13 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
       // INTELLIGENCE LAYER V2: Generate Embedding
       const embedding = await generateEmbedding(content);
 
+      // PRODUCTIVITY INTELLIGENCE V4: Analyze task meta if it's a task
+      let taskMeta = null;
+      if (classification.category === "task") {
+        taskMeta = await analyzeTaskMeta(content);
+        console.log("📋 Task Meta:", taskMeta);
+      }
+
       const newNote: Note = {
         id: generateId(),
         content,
@@ -57,6 +64,12 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
         embedding,
         categoryConfidence: classification.confidence,
         categoryReason: classification.reason,
+        // Productivity Intelligence V4: Add task fields
+        ...(classification.category === "task" && taskMeta ? {
+          status: "open",
+          priority: taskMeta.priority,
+          dueDate: taskMeta.dueDate,
+        } : {}),
       };
 
       const updatedNotes = addNote(newNote);

@@ -12,6 +12,7 @@ interface SidebarProps {
 const viewIcons = {
   notes: StickyNote,
   chat: MessageSquare,
+  tasks: CheckSquare,
   brain: BarChart3,
   graph: Network,
 };
@@ -57,7 +58,7 @@ export default function Sidebar({
       {/* Navigation */}
       <div className="p-4 border-b border-border-dark">
         <div className="space-y-1.5">
-          {(["notes", "chat", "brain", "graph"] as const).map((view) => {
+          {(["notes", "chat", "tasks", "brain", "graph"] as const).map((view) => {
             const Icon = viewIcons[view];
             const isActive = activeView === view;
             return (
@@ -78,6 +79,8 @@ export default function Sidebar({
                     ? "Notizen"
                     : view === "graph"
                     ? "Knowledge Graph"
+                    : view === "tasks"
+                    ? "Aufgaben"
                     : "Chat"}
                 </span>
               </button>

@@ -881,6 +881,121 @@ function getCategoryInsight(category: NoteCategory, count: number): string {
 }
 
 /**
+ * PRODUCTIVITY INTELLIGENCE V4: Task Meta Analysis
+ */
+export interface TaskMetaAnalysis {
+  isTask: boolean;
+  priority: "low" | "medium" | "high";
+  dueDate: string | null; // ISO date string or null
+  reason: string;
+}
+
+export async function analyzeTaskMeta(text: string): Promise<TaskMetaAnalysis> {
+  if (!hasGroqApiKey()) {
+    // Fallback: Simple keyword-based detection
+    const lowerText = text.toLowerCase();
+    const isUrgent = lowerText.includes("dringend") || lowerText.includes("urgent") || lowerText.includes("asap") || lowerText.includes("wichtig");
+    const hasDeadline = lowerText.includes("bis") || lowerText.includes("heute") || lowerText.includes("morgen") || lowerText.includes("deadline");
+
+    return {
+      isTask: true, // Assume it's a task if this function is called
+      priority: isUrgent ? "high" : hasDeadline ? "medium" : "medium",
+      dueDate: null,
+      reason: "Keyword-basierte Einschätzung (Mock-KI)",
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `Du bist ein Task-Analyse-Spezialist. Analysiere Text und erkenne:
+
+1. Ist es eine Aufgabe?
+2. Wie dringend/wichtig ist sie? (Priorität)
+3. Gibt es eine Fälligkeit/Deadline?
+
+Bewerte Priorität nach:
+- "high": Dringende Wörter wie "sofort", "dringend", "urgent", "ASAP", "wichtig"
+- "medium": Zeitbezüge wie "bald", "diese Woche", normale Aufgaben
+- "low": "irgendwann", "später", optionale Aufgaben
+
+Erkenne Fälligkeiten:
+- "heute" → heute
+- "morgen" → morgen
+- "nächste Woche" → nächste Woche Montag
+- "bis Freitag" → dieser Freitag
+- Wenn keine erkennbar: null
+
+Antworte IMMER im JSON-Format:
+{
+  "isTask": boolean,
+  "priority": "low" | "medium" | "high",
+  "dueDate": "YYYY-MM-DD" | null,
+  "reason": "Kurze Begründung der Einschätzung"
+}
+
+Heutiges Datum: ${new Date().toISOString().split('T')[0]}`
+          },
+          {
+            role: "user",
+            content: `Analysiere folgenden Text:\n\n"${text}"`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 250,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("No content in API response");
+    }
+
+    const result = JSON.parse(content);
+
+    console.log("📋 Task Meta Analysis:", result);
+
+    return {
+      isTask: result.isTask !== false, // Default to true
+      priority: result.priority || "medium",
+      dueDate: result.dueDate || null,
+      reason: result.reason || "AI-basierte Analyse",
+    };
+
+  } catch (error) {
+    console.warn("⚠️ Task meta analysis failed, using fallback:", error);
+
+    return {
+      isTask: true,
+      priority: "medium",
+      dueDate: null,
+      reason: "Fallback: Standard-Einstellungen",
+    };
+  }
+}
+
+/**
  * INTELLIGENCE LAYER V3: Erweiterte Entity Extraction MIT Topics
  */
 export async function extractEntitiesWithTopics(text: string): Promise<ExtendedEntityExtractionResult> {
