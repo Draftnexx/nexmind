@@ -1,7 +1,9 @@
 import { Note, ChatMessage, TaskStatus, TaskPriority } from "../types/note";
+import { AISuggestion } from "../services/automation";
 
 const NOTES_KEY = "nexmind_notes";
 const CHAT_KEY = "nexmind_chat";
+const AI_SUGGESTIONS_KEY = "nexmind_ai_suggestions";
 
 /**
  * Lädt alle Notizen aus dem localStorage
@@ -197,4 +199,114 @@ export function getTasksDueToday(): Note[] {
  */
 export function getOpenTasks(): Note[] {
   return getTasks().filter(task => (task.status || "open") !== "done");
+}
+
+// ==========================================
+// AUTOMATION ENGINE V5: AI Suggestions
+// ==========================================
+
+/**
+ * Loads all AI suggestions from localStorage
+ */
+export function loadAISuggestions(): AISuggestion[] {
+  try {
+    const stored = localStorage.getItem(AI_SUGGESTIONS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error("Error loading AI suggestions from localStorage:", error);
+  }
+  return [];
+}
+
+/**
+ * Saves all AI suggestions to localStorage
+ */
+export function saveAISuggestions(suggestions: AISuggestion[]): void {
+  try {
+    localStorage.setItem(AI_SUGGESTIONS_KEY, JSON.stringify(suggestions));
+  } catch (error) {
+    console.error("Error saving AI suggestions to localStorage:", error);
+  }
+}
+
+/**
+ * Adds a new AI suggestion
+ */
+export function addAISuggestion(suggestion: AISuggestion): AISuggestion[] {
+  const suggestions = loadAISuggestions();
+
+  // Don't add duplicate suggestions (same type + similar title)
+  const isDuplicate = suggestions.some(s =>
+    s.type === suggestion.type &&
+    s.title === suggestion.title &&
+    s.status === "pending"
+  );
+
+  if (!isDuplicate) {
+    suggestions.unshift(suggestion);
+    saveAISuggestions(suggestions);
+  }
+
+  return suggestions;
+}
+
+/**
+ * Accepts an AI suggestion (marks as accepted)
+ */
+export function acceptAISuggestion(id: string): AISuggestion[] {
+  const suggestions = loadAISuggestions();
+  const index = suggestions.findIndex(s => s.id === id);
+
+  if (index !== -1) {
+    suggestions[index] = {
+      ...suggestions[index],
+      status: "accepted",
+    };
+    saveAISuggestions(suggestions);
+  }
+
+  return suggestions;
+}
+
+/**
+ * Rejects an AI suggestion (marks as rejected)
+ */
+export function rejectAISuggestion(id: string): AISuggestion[] {
+  const suggestions = loadAISuggestions();
+  const index = suggestions.findIndex(s => s.id === id);
+
+  if (index !== -1) {
+    suggestions[index] = {
+      ...suggestions[index],
+      status: "rejected",
+    };
+    saveAISuggestions(suggestions);
+  }
+
+  return suggestions;
+}
+
+/**
+ * Gets pending AI suggestions
+ */
+export function getPendingAISuggestions(): AISuggestion[] {
+  return loadAISuggestions().filter(s => s.status === "pending");
+}
+
+/**
+ * Clears old AI suggestions (older than 7 days)
+ */
+export function clearOldAISuggestions(): void {
+  const suggestions = loadAISuggestions();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const filtered = suggestions.filter(s => {
+    const createdDate = new Date(s.createdAt);
+    return createdDate > sevenDaysAgo || s.status === "pending";
+  });
+
+  saveAISuggestions(filtered);
 }
