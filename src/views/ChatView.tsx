@@ -1,9 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
-import { ChatMessage } from "../types/note";
+import { ChatMessage, NoteCategory } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
 import { classifyNote, generateId } from "../utils/classifyNote";
 import ChatBubble from "../components/ChatBubble";
+
+/**
+ * Generiert KI-Antwort basierend auf der erkannten Kategorie
+ */
+function getAiReplyText(category: NoteCategory): string {
+  const categoryLabels = {
+    task: "Aufgabe",
+    event: "Termin",
+    idea: "Idee",
+    info: "Info",
+    person: "Person",
+  };
+
+  const responses = {
+    task: "Verstanden! Ich habe das als Aufgabe gespeichert. ✅",
+    event: "Notiert! Ich habe den Termin für dich festgehalten. 📅",
+    idea: "Tolle Idee! Ich habe sie gespeichert. 💡",
+    info: "Danke für die Info! Habe ich notiert. 📝",
+    person: "Kontakt gespeichert! 👤",
+  };
+
+  return `${responses[category]} Kategorisiert als: ${categoryLabels[category]}`;
+}
 
 export default function ChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -69,26 +92,12 @@ export default function ChatView() {
         createdAt: new Date().toISOString(),
       });
 
-      // KI-Antwort
-      const categoryLabels = {
-        task: "Aufgabe",
-        event: "Termin",
-        idea: "Idee",
-        info: "Info",
-        person: "Person",
-      };
-
-      const responses = {
-        task: "Verstanden! Ich habe das als Aufgabe gespeichert. ✅",
-        event: "Notiert! Ich habe den Termin für dich festgehalten. 📅",
-        idea: "Tolle Idee! Ich habe sie gespeichert. 💡",
-        info: "Danke für die Info! Habe ich notiert. 📝",
-        person: "Kontakt gespeichert! 👤",
-      };
+      // KI-Antwort generieren
+      const replyText = getAiReplyText(category);
 
       const assistantMessage: ChatMessage = {
         id: generateId(),
-        content: `${responses[category]} Kategorisiert als: ${categoryLabels[category]}`,
+        content: replyText,
         role: "assistant",
         timestamp: new Date().toISOString(),
         noteId,
