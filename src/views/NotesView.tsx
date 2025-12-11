@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, Zap } from "lucide-react";
 import { Note, NoteCategory } from "../types/note";
 import { loadNotes, addNote, deleteNote, searchNotes } from "../storage/localStorage";
-import { classifyNote, generateId } from "../utils/classifyNote";
+import { generateId } from "../utils/classifyNote";
+import { classifyNoteAI } from "../services/ai";
 import NoteItem from "../components/NoteItem";
 import NoteInput from "../components/NoteInput";
 
@@ -19,23 +20,32 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
     setNotes(loadNotes());
   }, []);
 
-  const handleAddNote = (content: string) => {
+  const handleAddNote = async (content: string) => {
     setIsClassifying(true);
 
-    // Simuliere KI-Klassifizierung mit kleiner Verzögerung
-    setTimeout(() => {
-      const category = classifyNote(content);
+    try {
+      // Echte AI-Klassifizierung mit Groq API (oder Fallback auf Mock-KI)
+      const result = await classifyNoteAI(content);
+
       const newNote: Note = {
         id: generateId(),
         content,
-        category,
+        category: result.category,
         createdAt: new Date().toISOString(),
       };
 
       const updatedNotes = addNote(newNote);
       setNotes(updatedNotes);
+
+      console.log(`✨ Note classified as "${result.category}" with ${Math.round(result.confidence * 100)}% confidence`);
+      if (result.reasoning) {
+        console.log(`📝 Reasoning: ${result.reasoning}`);
+      }
+    } catch (error) {
+      console.error("Error adding note:", error);
+    } finally {
       setIsClassifying(false);
-    }, 500);
+    }
   };
 
   const handleDeleteNote = (id: string) => {
@@ -74,8 +84,9 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
             </div>
             {isClassifying && (
               <div className="flex items-center gap-2 text-accent">
-                <Sparkles size={20} className="animate-pulse" />
-                <span className="text-sm font-medium">KI klassifiziert...</span>
+                <Zap size={20} className="animate-pulse" />
+                <Sparkles size={18} className="animate-spin" />
+                <span className="text-sm font-medium">KI analysiert...</span>
               </div>
             )}
           </div>

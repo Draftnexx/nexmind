@@ -7,20 +7,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#4B72FF',
-        accent: '#00D4A6',
-        dark: '#1F1F1F',
-        neutral: '#EAEAEA',
-        'gray-50': '#FAFAFA',
-        'gray-100': '#F5F5F5',
-        'gray-200': '#EAEAEA',
-        'gray-300': '#D4D4D4',
-        'gray-400': '#A3A3A3',
-        'gray-500': '#737373',
-        'gray-600': '#525252',
-        'gray-700': '#404040',
-        'gray-800': '#262626',
-        'gray-900': '#1F1F1F',
+        // Draftnex Brand Colors
+        primary: '#4B72FF',        // Draftnex Blau
+        accent: '#00D4A6',         // KI / Intelligence
+
+        // Dark Theme Backgrounds
+        'dark-bg': '#0F0F11',      // Main Background
+        'dark-surface': '#121214', // Cards & Panels
+        'dark-elevated': '#1A1A1D',// Elevated surfaces
+
+        // Text Colors
+        'text-primary': '#F1F1F1', // Main text
+        'text-secondary': '#B9B9B9',// Secondary text
+        'text-muted': '#6B6B6B',   // Muted text
+
+        // Borders & Dividers
+        'border-dark': '#2A2A2E',  // Borders
+
+        // Category Colors
+        'cat-task': '#4B72FF',     // Task - Blue
+        'cat-event': '#9b5cff',    // Event - Purple
+        'cat-idea': '#00D4A6',     // Idea - Turquoise
+        'cat-info': '#6B6B6B',     // Info - Gray
+        'cat-person': '#f2c94c',   // Person - Yellow
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
@@ -29,6 +38,32 @@ export default {
       borderRadius: {
         'xl': '1rem',
         '2xl': '1.5rem',
+        '3xl': '2rem',
+      },
+      boxShadow: {
+        'draftnex': '0 4px 24px rgba(75, 114, 255, 0.12)',
+        'glow-primary': '0 0 20px rgba(75, 114, 255, 0.3)',
+        'glow-accent': '0 0 20px rgba(0, 212, 166, 0.3)',
+      },
+      animation: {
+        'glow': 'glow 2s ease-in-out infinite alternate',
+        'float': 'float 3s ease-in-out infinite',
+      },
+      keyframes: {
+        glow: {
+          '0%': { boxShadow: '0 0 5px rgba(75, 114, 255, 0.5)' },
+          '100%': { boxShadow: '0 0 20px rgba(75, 114, 255, 1)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+      },
+      transitionDuration: {
+        '200': '200ms',
+      },
+      transitionTimingFunction: {
+        'out': 'cubic-bezier(0.33, 1, 0.68, 1)',
       },
     },
   },

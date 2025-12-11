@@ -1,32 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
-import { ChatMessage, NoteCategory } from "../types/note";
+import { ChatMessage } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
-import { classifyNote, generateId } from "../utils/classifyNote";
+import { generateId } from "../utils/classifyNote";
+import { classifyNoteAI, getAIChatReply } from "../services/ai";
 import ChatBubble from "../components/ChatBubble";
-
-/**
- * Generiert KI-Antwort basierend auf der erkannten Kategorie
- */
-function getAiReplyText(category: NoteCategory): string {
-  const categoryLabels = {
-    task: "Aufgabe",
-    event: "Termin",
-    idea: "Idee",
-    info: "Info",
-    person: "Person",
-  };
-
-  const responses = {
-    task: "Verstanden! Ich habe das als Aufgabe gespeichert. ✅",
-    event: "Notiert! Ich habe den Termin für dich festgehalten. 📅",
-    idea: "Tolle Idee! Ich habe sie gespeichert. 💡",
-    info: "Danke für die Info! Habe ich notiert. 📝",
-    person: "Kontakt gespeichert! 👤",
-  };
-
-  return `${responses[category]} Kategorisiert als: ${categoryLabels[category]}`;
-}
 
 export default function ChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -79,21 +57,24 @@ export default function ChatView() {
     const updatedMessages = addChatMessage(userMessage);
     setMessages([...updatedMessages]);
 
-    // Simuliere KI-Verarbeitung
-    setTimeout(() => {
-      // Notiz erstellen und klassifizieren
-      const category = classifyNote(userContent);
+    // Echte AI-Verarbeitung mit Groq (oder Fallback)
+    try {
+      // 1. Klassifizieren mit AI
+      const result = await classifyNoteAI(userContent);
       const noteId = generateId();
 
+      // 2. Notiz speichern
       addNote({
         id: noteId,
         content: userContent,
-        category,
+        category: result.category,
         createdAt: new Date().toISOString(),
       });
 
-      // KI-Antwort generieren
-      const replyText = getAiReplyText(category);
+      console.log(`✨ Chat message classified as "${result.category}" with ${Math.round(result.confidence * 100)}% confidence`);
+
+      // 3. Intelligente AI-Antwort generieren
+      const replyText = await getAIChatReply(userContent, result.category, result.confidence);
 
       const assistantMessage: ChatMessage = {
         id: generateId(),
@@ -105,8 +86,11 @@ export default function ChatView() {
 
       const finalMessages = addChatMessage(assistantMessage);
       setMessages([...finalMessages]);
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+    } finally {
       setIsProcessing(false);
-    }, 800);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

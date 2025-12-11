@@ -29,22 +29,22 @@ export default function NoteItem({ note, onDelete }: NoteItemProps) {
   };
 
   return (
-    <div className="card p-4 hover:shadow-md transition-shadow group">
+    <div className="note-card group">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <CategoryBadge category={note.category} />
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-text-muted">
               {formatDate(note.createdAt)}
             </span>
           </div>
-          <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap break-words">
             {note.content}
           </p>
         </div>
         <button
           onClick={() => onDelete(note.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-500/20 rounded-lg text-text-muted hover:text-red-400"
           title="Notiz löschen"
         >
           <Trash2 size={16} />
