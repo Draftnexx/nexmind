@@ -4,7 +4,7 @@ import { ChatMessage } from "../types/note";
 import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
 import {
-  classifyNoteSemanticV2,
+  analyzeComplexInput,
   extractEntitiesWithTopics,
   generateEmbedding,
   interpretChatCommand,
@@ -80,60 +80,87 @@ export default function ChatView() {
 
       let noteId: string | undefined;
 
-      // 2. Wenn es eine normale Nachricht ist (keine Query), speichere als Notiz
+      // 2. Wenn es eine normale Nachricht ist (keine Query), speichere als Notiz(en)
       if (command.type === "normal") {
-        // Klassifizieren mit AI (V2)
-        const classification = await classifyNoteSemanticV2(userContent);
+        // MULTI-INTENT PARSER: Analyze and potentially split
+        const multiIntentResult = await analyzeComplexInput(userContent);
 
-        // INTELLIGENCE LAYER V3: Extended Entity Extraction WITH Topics
-        const extendedEntities = await extractEntitiesWithTopics(userContent);
-
-        // Generate Embedding
-        const embedding = await generateEmbedding(userContent);
-
-        noteId = generateId();
-
-        // Notiz speichern
-        const newNote = {
-          id: noteId,
-          content: userContent,
-          category: classification.category,
-          createdAt: new Date().toISOString(),
-          entities: {
-            persons: extendedEntities.persons,
-            places: extendedEntities.places,
-            projects: extendedEntities.projects,
-            topics: extendedEntities.topics,
-          },
-          embedding,
-          categoryConfidence: classification.confidence,
-          categoryReason: classification.reason,
-        };
-
-        addNote(newNote);
-
-        // INTELLIGENCE LAYER V3: Update Knowledge Graph
         const graph = loadGraph();
-        const allNotes = loadNotes();
+        let allNotes = loadNotes();
+        const createdNoteIds: string[] = [];
 
-        addNoteToGraph(newNote, graph);
-        addEntityNodes(newNote, graph);
-        addTopicNodes(newNote, extendedEntities.topics, graph);
-        addSimilarityEdges(newNote, allNotes, graph);
+        // Process each detected intent
+        for (const item of multiIntentResult.items) {
+          const extendedEntities = await extractEntitiesWithTopics(item.content);
+          const embedding = await generateEmbedding(item.content);
+
+          const newNoteId = generateId();
+          createdNoteIds.push(newNoteId);
+
+          let taskFields = {};
+          if (item.category === "task") {
+            taskFields = {
+              status: "open",
+              priority: item.priority || "medium",
+              dueDate: item.dueDate || null,
+            };
+          }
+
+          const newNote = {
+            id: newNoteId,
+            content: item.content,
+            category: item.category,
+            createdAt: new Date().toISOString(),
+            entities: {
+              persons: extendedEntities.persons,
+              places: extendedEntities.places,
+              projects: extendedEntities.projects,
+              topics: extendedEntities.topics,
+            },
+            embedding,
+            categoryConfidence: item.confidence,
+            categoryReason: item.reasoning,
+            ...taskFields,
+          };
+
+          addNote(newNote);
+          allNotes = loadNotes(); // Reload after each add
+
+          // Update Knowledge Graph
+          addNoteToGraph(newNote, graph);
+          addEntityNodes(newNote, graph);
+          addTopicNodes(newNote, extendedEntities.topics, graph);
+          addSimilarityEdges(newNote, allNotes, graph);
+        }
 
         saveGraph(graph);
 
-        console.log(`✨ Chat message classified as "${classification.category}" with ${Math.round(classification.confidence * 100)}% confidence`);
-        console.log(`🏷️ Extended Entities:`, extendedEntities);
+        noteId = createdNoteIds[0]; // First note ID for reference
+
+        console.log(`✨ Chat created ${multiIntentResult.items.length} note(s)`);
+        if (multiIntentResult.originalHadMultipleIntents) {
+          console.log(`✂️ Multi-task detected and split!`);
+        }
         console.log(`📊 Knowledge Graph updated from Chat`);
 
-        // 3. Intelligente AI-Antwort generieren (V2)
-        const replyText = await getAIChatReplyV2(
-          userContent,
-          command,
-          classification.category,
-          classification.confidence
-        );
+        // 3. Intelligente AI-Antwort generieren
+        let replyText: string;
+
+        if (multiIntentResult.originalHadMultipleIntents) {
+          // Special reply for multi-tasks
+          replyText = `Perfekt! Ich habe ${multiIntentResult.items.length} separate Notizen erstellt:\n\n`;
+          multiIntentResult.items.forEach((item, index) => {
+            const emoji = item.category === "task" ? "✅" : item.category === "event" ? "📅" : item.category === "idea" ? "💡" : "📝";
+            replyText += `${emoji} ${item.content.substring(0, 60)}${item.content.length > 60 ? "..." : ""}\n`;
+          });
+        } else {
+          replyText = await getAIChatReplyV2(
+            userContent,
+            command,
+            multiIntentResult.items[0].category,
+            multiIntentResult.items[0].confidence
+          );
+        }
 
         const assistantMessage: ChatMessage = {
           id: generateId(),

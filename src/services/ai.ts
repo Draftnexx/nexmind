@@ -996,6 +996,171 @@ Heutiges Datum: ${new Date().toISOString().split('T')[0]}`
 }
 
 /**
+ * MULTI-INTENT PARSER: Analysiert komplexe Eingaben und splitted sie in mehrere Notizen
+ *
+ * Beispiel: "Ich muss morgen Putzen, Brot kaufen und Freitag zum Arzt."
+ * → Wird in 3 separate Tasks/Events gesplittet
+ */
+export interface MultiIntentResult {
+  items: Array<{
+    content: string;
+    category: NoteCategory;
+    confidence: number;
+    reasoning: string;
+    priority?: "low" | "medium" | "high";
+    dueDate?: string | null;
+  }>;
+  originalHadMultipleIntents: boolean;
+}
+
+export async function analyzeComplexInput(text: string): Promise<MultiIntentResult> {
+  if (!hasGroqApiKey()) {
+    // Fallback: Simple splitting by commas and "und"
+    const parts = text.split(/,|\sund\s/).map(p => p.trim()).filter(p => p.length > 3);
+
+    if (parts.length > 1) {
+      return {
+        items: parts.map(part => ({
+          content: part,
+          category: mockClassifyNote(part),
+          confidence: 0.7,
+          reasoning: "Keyword-basierte Erkennung (Mock-KI)",
+        })),
+        originalHadMultipleIntents: true,
+      };
+    }
+
+    // Einzelne Notiz
+    return {
+      items: [{
+        content: text,
+        category: mockClassifyNote(text),
+        confidence: 0.8,
+        reasoning: "Keyword-basierte Klassifizierung",
+      }],
+      originalHadMultipleIntents: false,
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT * 2);
+
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `Du bist ein Multi-Intent Parser für Notizen. Analysiere Text und erkenne ALLE separaten Aufgaben, Termine, Ideen etc.
+
+Kategorien:
+- task: Aufgaben, Todos
+- event: Termine, zeitgebundene Ereignisse
+- idea: Ideen, Vorschläge
+- info: Informationen, Fakten
+- person: Personenbezogene Notizen
+
+Wenn der Text MEHRERE separate Intents enthält, SPLITTE sie!
+
+Beispiele:
+- "Ich muss Putzen, Brot kaufen und zum Arzt" → 3 tasks
+- "Meeting um 10 Uhr, dann Mittagessen mit Maria" → 2 events
+- "Notiz: Projekt läuft gut" → 1 info
+
+Antworte IMMER im JSON-Format:
+{
+  "items": [
+    {
+      "content": "Beschreibung des Tasks/Events",
+      "category": "task|event|idea|info|person",
+      "confidence": 0.0-1.0,
+      "reasoning": "Kurze Erklärung",
+      "priority": "low|medium|high" (nur bei tasks),
+      "dueDate": "YYYY-MM-DD" oder null (nur bei tasks/events)
+    }
+  ],
+  "originalHadMultipleIntents": true/false
+}
+
+Heutiges Datum: ${new Date().toISOString().split('T')[0]}
+
+WICHTIG: Splitten nur wenn WIRKLICH mehrere separate Aktionen/Ereignisse gemeint sind!`
+          },
+          {
+            role: "user",
+            content: `Analysiere und splitte wenn nötig:\n\n"${text}"`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 800,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("No content in API response");
+    }
+
+    const result = JSON.parse(content);
+
+    console.log("🎯 Multi-Intent Analysis:", result);
+
+    return {
+      items: result.items || [{
+        content: text,
+        category: "info",
+        confidence: 0.8,
+        reasoning: "Fallback",
+      }],
+      originalHadMultipleIntents: result.originalHadMultipleIntents || false,
+    };
+
+  } catch (error) {
+    console.warn("⚠️ Multi-intent analysis failed, using fallback:", error);
+
+    // Fallback: Try simple splitting
+    const parts = text.split(/,|\sund\s/).map(p => p.trim()).filter(p => p.length > 3);
+
+    if (parts.length > 1) {
+      return {
+        items: parts.map(part => ({
+          content: part,
+          category: mockClassifyNote(part),
+          confidence: 0.7,
+          reasoning: "Fallback: Einfaches Splitting",
+        })),
+        originalHadMultipleIntents: true,
+      };
+    }
+
+    return {
+      items: [{
+        content: text,
+        category: mockClassifyNote(text),
+        confidence: 0.7,
+        reasoning: "Fallback: Einzelne Notiz",
+      }],
+      originalHadMultipleIntents: false,
+    };
+  }
+}
+
+/**
  * INTELLIGENCE LAYER V3: Erweiterte Entity Extraction MIT Topics
  */
 export async function extractEntitiesWithTopics(text: string): Promise<ExtendedEntityExtractionResult> {
