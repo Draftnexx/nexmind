@@ -14,6 +14,7 @@ import { generateProactiveSuggestions } from "./services/automation";
 import { addAISuggestion } from "./storage/localStorage";
 import { supabase } from "./lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
+import { migrateLocalNotesToSupabase } from "./services/migrationService";
 
 type View = "notes" | "chat" | "brain" | "graph" | "tasks" | "ai";
 
@@ -37,23 +38,29 @@ function App() {
     console.log("🔐 Initializing authentication...");
 
     // Get initial session
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setUser(data.session?.user ?? null);
       setAuthLoading(false);
 
       if (data.session?.user) {
         console.log(`✅ User authenticated: ${data.session.user.email}`);
+
+        // Run one-time migration from localStorage to Supabase
+        await migrateLocalNotesToSupabase(data.session.user.id);
       } else {
         console.log("ℹ️ No active session");
       }
     });
 
     // Listen for auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
         console.log(`🔄 Auth state changed: ${session.user.email} logged in`);
+
+        // Run one-time migration when user logs in
+        await migrateLocalNotesToSupabase(session.user.id);
       } else {
         console.log("🔄 Auth state changed: logged out");
       }

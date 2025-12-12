@@ -17,7 +17,11 @@ import {
 } from "../services/graph";
 import NoteItem from "../components/NoteItem";
 import NoteInput from "../components/NoteInput";
-import { fetchNotesFromSupabase } from "../services/notesRepository";
+import {
+  fetchNotesFromSupabase,
+  addNoteToSupabase,
+  deleteNoteFromSupabase
+} from "../services/notesRepository";
 
 interface NotesViewProps {
   selectedCategory: NoteCategory | "all";
@@ -57,7 +61,6 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
         console.log(`✂️ Input split into ${nlpResult.items.length} separate notes`);
       }
 
-      let updatedNotes = loadNotes();
       const graph = loadGraph();
 
       // Process each NLP item
@@ -82,39 +85,42 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
           categoryReason: nlpItem.reasoning || "NLP Pipeline Analysis",
           // Task-specific fields
           ...(nlpItem.category === "task" ? {
-            status: "open",
+            status: "open" as const,
             priority: nlpItem.priority || "medium",
             dueDate: nlpItem.dueDate || null,
           } : {}),
         };
 
-        updatedNotes = addNote(newNote);
+        // SUPABASE: Write to Supabase instead of localStorage
+        const success = await addNoteToSupabase(userId, newNote);
 
-        // Update Knowledge Graph
-        addNoteToGraph(newNote, graph);
-        addEntityNodes(newNote, graph);
-        addTopicNodes(newNote, nlpItem.entities.topics, graph);
-        addSimilarityEdges(newNote, updatedNotes, graph);
+        if (success) {
+          // Update Knowledge Graph only if write succeeded
+          addNoteToGraph(newNote, graph);
+          addEntityNodes(newNote, graph);
+          addTopicNodes(newNote, nlpItem.entities.topics, graph);
 
-        console.log(`✨ Created note: "${nlpItem.category}" - ${nlpItem.content.substring(0, 50)}...`);
-        if (nlpItem.dueDate) {
-          console.log(`   📅 Due: ${nlpItem.dueDate}`);
-        }
-        if (nlpItem.priority) {
-          console.log(`   ⚡ Priority: ${nlpItem.priority}`);
-        }
-        if (nlpItem.entities.persons.length > 0) {
-          console.log(`   👤 Persons: ${nlpItem.entities.persons.join(", ")}`);
-        }
-        if (nlpItem.entities.projects.length > 0) {
-          console.log(`   📁 Projects: ${nlpItem.entities.projects.join(", ")}`);
+          console.log(`✨ Created note: "${nlpItem.category}" - ${nlpItem.content.substring(0, 50)}...`);
+          if (nlpItem.dueDate) {
+            console.log(`   📅 Due: ${nlpItem.dueDate}`);
+          }
+          if (nlpItem.priority) {
+            console.log(`   ⚡ Priority: ${nlpItem.priority}`);
+          }
+          if (nlpItem.entities.persons.length > 0) {
+            console.log(`   👤 Persons: ${nlpItem.entities.persons.join(", ")}`);
+          }
+          if (nlpItem.entities.projects.length > 0) {
+            console.log(`   📁 Projects: ${nlpItem.entities.projects.join(", ")}`);
+          }
         }
       }
 
       // Save graph once after all notes
       saveGraph(graph);
 
-      // Update UI
+      // SUPABASE: Reload notes from Supabase
+      const updatedNotes = await fetchNotesFromSupabase(userId);
       setNotes(updatedNotes);
 
       console.log(`📊 Knowledge Graph updated with ${nlpResult.items.length} notes`);
@@ -135,16 +141,24 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
         categoryReason: "Fallback due to error",
       };
 
-      const updatedNotes = addNote(simpleNote);
+      // SUPABASE: Write fallback note to Supabase
+      await addNoteToSupabase(userId, simpleNote);
+      const updatedNotes = await fetchNotesFromSupabase(userId);
       setNotes(updatedNotes);
     } finally {
       setIsClassifying(false);
     }
   };
 
-  const handleDeleteNote = (id: string) => {
-    const updatedNotes = deleteNote(id);
-    setNotes(updatedNotes);
+  const handleDeleteNote = async (id: string) => {
+    // SUPABASE: Delete from Supabase instead of localStorage
+    const success = await deleteNoteFromSupabase(userId, id);
+
+    if (success) {
+      // Reload notes from Supabase
+      const updatedNotes = await fetchNotesFromSupabase(userId);
+      setNotes(updatedNotes);
+    }
   };
 
   // Filter notes
