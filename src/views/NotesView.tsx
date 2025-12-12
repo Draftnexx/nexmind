@@ -17,6 +17,10 @@ import {
 } from "../services/graph";
 import NoteItem from "../components/NoteItem";
 import NoteInput from "../components/NoteInput";
+import { fetchNotesFromSupabase } from "../services/notesRepository";
+
+// TEMPORARY: Hardcoded user ID until authentication is implemented
+const TEMP_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 interface NotesViewProps {
   selectedCategory: NoteCategory | "all";
@@ -27,8 +31,18 @@ export default function NotesView({ selectedCategory }: NotesViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isClassifying, setIsClassifying] = useState(false);
 
+  // READ-ONLY: Load notes from Supabase on mount
   useEffect(() => {
-    setNotes(loadNotes());
+    const loadNotesFromSupabase = async () => {
+      console.log("📖 Loading notes from Supabase...");
+      const supabaseNotes = await fetchNotesFromSupabase(TEMP_USER_ID);
+      setNotes(supabaseNotes);
+
+      // DEACTIVATED: localStorage read (kept for future migration)
+      // setNotes(loadNotes());
+    };
+
+    loadNotesFromSupabase();
   }, []);
 
   const handleAddNote = async (content: string) => {
