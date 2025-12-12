@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { ChatMessage } from "../types/note";
-import { loadChatMessages, addChatMessage, addNote } from "../storage/localStorage";
+import { loadChatMessages, addChatMessage } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
 import {
   generateEmbedding,
@@ -9,16 +9,19 @@ import {
   getAIChatReplyV2
 } from "../services/ai";
 import { analyzeUserInput } from "../services/nlpPipeline";
+import { addNoteToSupabase } from "../services/notesRepository";
 import {
   loadGraph,
   saveGraph,
   addNoteToGraph,
   addEntityNodes,
   addTopicNodes,
-  addSimilarityEdges,
 } from "../services/graph";
-import { loadNotes } from "../storage/localStorage";
 import ChatBubble from "../components/ChatBubble";
+
+interface ChatViewProps {
+  userId: string;
+}
 
 /**
  * Formats an ISO date string to a readable format
@@ -47,7 +50,7 @@ function formatDate(isoDate: string): string {
   }
 }
 
-export default function ChatView() {
+export default function ChatView({ userId }: ChatViewProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -108,11 +111,13 @@ export default function ChatView() {
 
       // 2. Wenn es eine normale Nachricht ist (keine Query), speichere als Notiz(en)
       if (command.type === "normal") {
+        console.log("💬 Chat input received:", userContent);
+
         // UNIFIED NLP PIPELINE V6: Single AI analysis
         const nlpResult = await analyzeUserInput(userContent);
+        console.log(`🎯 Parsed ${nlpResult.items.length} note(s) from NLP`);
 
         const graph = loadGraph();
-        let allNotes = loadNotes();
         const createdNoteIds: string[] = [];
 
         // Process each NLP item
@@ -138,20 +143,26 @@ export default function ChatView() {
             categoryReason: nlpItem.reasoning || "NLP Pipeline",
             // Task-specific fields
             ...(nlpItem.category === "task" ? {
-              status: "open",
+              status: "open" as const,
               priority: nlpItem.priority || "medium",
               dueDate: nlpItem.dueDate || null,
             } : {}),
           };
 
-          addNote(newNote);
-          allNotes = loadNotes();
+          // CRITICAL FIX: Write to Supabase instead of localStorage
+          console.log(`💾 Inserting note "${nlpItem.category}" into Supabase:`, newNote.content.substring(0, 50));
+          const success = await addNoteToSupabase(userId, newNote);
 
-          // Update Knowledge Graph
-          addNoteToGraph(newNote, graph);
-          addEntityNodes(newNote, graph);
-          addTopicNodes(newNote, nlpItem.entities.topics, graph);
-          addSimilarityEdges(newNote, allNotes, graph);
+          if (success) {
+            console.log(`✅ Note successfully inserted into Supabase: ${newNoteId}`);
+
+            // Update Knowledge Graph only if write succeeded
+            addNoteToGraph(newNote, graph);
+            addEntityNodes(newNote, graph);
+            addTopicNodes(newNote, nlpItem.entities.topics, graph);
+          } else {
+            console.error(`❌ Failed to insert note into Supabase: ${newNoteId}`);
+          }
         }
 
         saveGraph(graph);
