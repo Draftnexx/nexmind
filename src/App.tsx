@@ -6,16 +6,20 @@ import BrainReportView from "./views/BrainReportView";
 import GraphView from "./views/GraphView";
 import TaskDashboardView from "./views/TaskDashboardView";
 import AISuggestionsView from "./views/AISuggestionsView";
+import AuthGate from "./components/AuthGate";
 import { NoteCategory } from "./types/note";
 import { loadNotes } from "./storage/localStorage";
 import { loadGraph, saveGraph, buildGraphFromNotes } from "./services/graph";
 import { generateProactiveSuggestions } from "./services/automation";
 import { addAISuggestion } from "./storage/localStorage";
 import { supabase } from "./lib/supabaseClient";
+import { User } from "@supabase/supabase-js";
 
 type View = "notes" | "chat" | "brain" | "graph" | "tasks" | "ai";
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [activeView, setActiveView] = useState<View>("notes");
   const [selectedCategory, setSelectedCategory] = useState<NoteCategory | "all">("all");
   const [isInitializing, setIsInitializing] = useState(true);
@@ -27,6 +31,38 @@ function App() {
     info: 0,
     person: 0,
   });
+
+  // AUTHENTICATION - Check session and listen for auth changes
+  useEffect(() => {
+    console.log("🔐 Initializing authentication...");
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+
+      if (data.session?.user) {
+        console.log(`✅ User authenticated: ${data.session.user.email}`);
+      } else {
+        console.log("ℹ️ No active session");
+      }
+    });
+
+    // Listen for auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        console.log(`🔄 Auth state changed: ${session.user.email} logged in`);
+      } else {
+        console.log("🔄 Auth state changed: logged out");
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // INTELLIGENCE SYSTEM INITIALIZATION
   useEffect(() => {
@@ -159,6 +195,38 @@ function App() {
     }
   };
 
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex h-screen bg-dark-bg items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-4 mb-6">
+            <img src="/logo.svg" alt="NexMind" className="w-16 h-16 animate-pulse" />
+            <div>
+              <h1 className="text-4xl font-display font-bold text-text-primary mb-2">
+                NexMind
+              </h1>
+              <p className="text-sm text-text-muted">The Memory That Thinks</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-accent justify-center">
+            <div className="w-2 h-2 bg-accent rounded-full animate-pulse" style={{ animationDelay: "0ms" }} />
+            <div className="w-2 h-2 bg-accent rounded-full animate-pulse" style={{ animationDelay: "200ms" }} />
+            <div className="w-2 h-2 bg-accent rounded-full animate-pulse" style={{ animationDelay: "400ms" }} />
+          </div>
+          <p className="text-sm text-text-secondary mt-4">
+            Prüfe Anmeldung...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <AuthGate user={user} />;
+  }
+
   return (
     <div className="flex h-screen bg-dark-bg overflow-hidden">
       {/* Intelligence System Initialization Splash Screen */}
@@ -195,7 +263,7 @@ function App() {
       />
 
       <main className="flex-1 overflow-hidden">
-        {activeView === "notes" && <NotesView selectedCategory={selectedCategory} />}
+        {activeView === "notes" && <NotesView selectedCategory={selectedCategory} userId={user.id} />}
         {activeView === "chat" && <ChatView />}
         {activeView === "brain" && <BrainReportView />}
         {activeView === "graph" && <GraphView />}
