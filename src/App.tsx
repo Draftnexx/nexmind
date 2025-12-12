@@ -280,7 +280,7 @@ function App() {
         {activeView === "chat" && <ChatView userId={user.id} />}
         {activeView === "brain" && <BrainReportView />}
         {activeView === "graph" && <GraphView />}
-        {activeView === "tasks" && <TaskDashboardView />}
+        {activeView === "tasks" && <TaskDashboardView userId={user.id} />}
         {activeView === "ai" && <AISuggestionsView />}
       </main>
     </div>

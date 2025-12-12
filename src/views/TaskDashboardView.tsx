@@ -8,16 +8,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Note, TaskStatus, TaskPriority } from "../types/note";
-import {
-  getTasks,
-  getTasksDueToday,
-  getOverdueTasks,
-  getOpenTasks,
-  updateTaskStatus,
-  updateTaskPriority,
-} from "../storage/localStorage";
+import { fetchNotesFromSupabase, updateNoteInSupabase } from "../services/notesRepository";
 
-export default function TaskDashboardView() {
+interface TaskDashboardViewProps {
+  userId: string;
+}
+
+export default function TaskDashboardView({ userId }: TaskDashboardViewProps) {
   const [allTasks, setAllTasks] = useState<Note[]>([]);
   const [tasksDueToday, setTasksDueToday] = useState<Note[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<Note[]>([]);
@@ -29,23 +26,44 @@ export default function TaskDashboardView() {
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [userId]);
 
-  const loadTasks = () => {
-    setAllTasks(getTasks());
-    setTasksDueToday(getTasksDueToday());
-    setOverdueTasks(getOverdueTasks());
-    setOpenTasks(getOpenTasks());
+  const loadTasks = async () => {
+    console.log("📋 Loading tasks from Supabase...");
+    const notes = await fetchNotesFromSupabase(userId);
+    const tasks = notes.filter(note => note.category === "task");
+
+    setAllTasks(tasks);
+
+    // Tasks due today
+    const today = new Date().toISOString().split('T')[0];
+    setTasksDueToday(tasks.filter(task => task.dueDate === today));
+
+    // Overdue tasks
+    setOverdueTasks(tasks.filter(task => task.dueDate && task.dueDate < today && task.status !== "done"));
+
+    // Open tasks
+    setOpenTasks(tasks.filter(task => task.status !== "done"));
+
+    console.log(`✅ Loaded ${tasks.length} tasks from Supabase`);
   };
 
-  const handleStatusChange = (noteId: string, status: TaskStatus) => {
-    updateTaskStatus(noteId, status);
-    loadTasks();
+  const handleStatusChange = async (noteId: string, status: TaskStatus) => {
+    console.log(`🔄 Updating task ${noteId} status to ${status}`);
+    const task = allTasks.find(t => t.id === noteId);
+    if (!task) return;
+
+    await updateNoteInSupabase(userId, { ...task, id: noteId, status });
+    await loadTasks();
   };
 
-  const handlePriorityChange = (noteId: string, priority: TaskPriority) => {
-    updateTaskPriority(noteId, priority);
-    loadTasks();
+  const handlePriorityChange = async (noteId: string, priority: TaskPriority) => {
+    console.log(`🔄 Updating task ${noteId} priority to ${priority}`);
+    const task = allTasks.find(t => t.id === noteId);
+    if (!task) return;
+
+    await updateNoteInSupabase(userId, { ...task, id: noteId, priority });
+    await loadTasks();
   };
 
   // Filter and sort open tasks
