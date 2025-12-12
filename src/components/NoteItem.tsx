@@ -5,9 +5,11 @@ import CategoryBadge from "./CategoryBadge";
 interface NoteItemProps {
   note: Note;
   onDelete: (id: string) => void;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
-export default function NoteItem({ note, onDelete }: NoteItemProps) {
+export default function NoteItem({ note, onDelete, onClick, isSelected }: NoteItemProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -29,7 +31,14 @@ export default function NoteItem({ note, onDelete }: NoteItemProps) {
   };
 
   return (
-    <div className="note-card group">
+    <div
+      onClick={onClick}
+      className={`note-card group cursor-pointer transition-all ${
+        isSelected
+          ? "ring-2 ring-primary bg-primary/5"
+          : "hover:bg-dark-elevated hover:border-border-light"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
@@ -38,12 +47,15 @@ export default function NoteItem({ note, onDelete }: NoteItemProps) {
               {formatDate(note.createdAt)}
             </span>
           </div>
-          <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap break-words line-clamp-3">
             {note.content}
           </p>
         </div>
         <button
-          onClick={() => onDelete(note.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(note.id);
+          }}
           className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-500/20 rounded-lg text-text-muted hover:text-red-400"
           title="Notiz löschen"
         >
