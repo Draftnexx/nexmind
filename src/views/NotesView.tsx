@@ -22,6 +22,7 @@ import {
   addNoteToSupabase,
   deleteNoteFromSupabase
 } from "../services/notesRepository";
+import NoteDetailView from "../components/NoteDetailView";
 
 interface NotesViewProps {
   selectedCategory: NoteCategory | "all";
@@ -32,6 +33,7 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
   const [notes, setNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isClassifying, setIsClassifying] = useState(false);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   // READ-ONLY: Load notes from Supabase on mount
   useEffect(() => {
@@ -155,11 +157,27 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
     const success = await deleteNoteFromSupabase(userId, id);
 
     if (success) {
+      // Close detail view if deleted note was selected
+      if (selectedNoteId === id) {
+        setSelectedNoteId(null);
+      }
       // Reload notes from Supabase
       const updatedNotes = await fetchNotesFromSupabase(userId);
       setNotes(updatedNotes);
     }
   };
+
+  const handleNoteClick = (noteId: string) => {
+    setSelectedNoteId(noteId);
+  };
+
+  const handleNoteUpdate = async () => {
+    // Reload notes after edit
+    const updatedNotes = await fetchNotesFromSupabase(userId);
+    setNotes(updatedNotes);
+  };
+
+  const selectedNote = notes.find(note => note.id === selectedNoteId);
 
   // Filter notes
   const filteredNotes = notes.filter((note) => {
@@ -177,10 +195,13 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
   });
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-dark-bg">
-      {/* Header */}
-      <div className="bg-dark-surface border-b border-border-dark px-8 py-6">
-        <div className="max-w-4xl mx-auto">
+    <div className="flex h-screen bg-dark-bg">
+      {/* Notes List - Left Side */}
+      <div className={`flex flex-col border-r border-border-dark bg-dark-surface ${
+        selectedNote ? "w-1/2" : "flex-1"
+      }`}>
+        {/* Header */}
+        <div className="border-b border-border-dark px-6 py-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-display font-bold text-text-primary">
@@ -214,36 +235,54 @@ export default function NotesView({ selectedCategory, userId }: NotesViewProps) 
             />
           </div>
         </div>
-      </div>
 
-      {/* Notes List */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {/* Input */}
-          <NoteInput onSubmit={handleAddNote} />
+        {/* Notes List */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="space-y-4">
+            {/* Input */}
+            <NoteInput onSubmit={handleAddNote} />
 
-          {/* Notes */}
-          {filteredNotes.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-elevated border border-border-dark mb-6">
-                <Sparkles size={32} className="text-accent" />
+            {/* Notes */}
+            {filteredNotes.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-elevated border border-border-dark mb-6">
+                  <Sparkles size={32} className="text-accent" />
+                </div>
+                <h3 className="text-xl font-display font-semibold text-text-primary mb-2">
+                  Keine Notizen gefunden
+                </h3>
+                <p className="text-text-secondary">
+                  {searchQuery
+                    ? "Versuche einen anderen Suchbegriff"
+                    : "Erstelle deine erste Notiz oben"}
+                </p>
               </div>
-              <h3 className="text-xl font-display font-semibold text-text-primary mb-2">
-                Keine Notizen gefunden
-              </h3>
-              <p className="text-text-secondary">
-                {searchQuery
-                  ? "Versuche einen anderen Suchbegriff"
-                  : "Erstelle deine erste Notiz oben"}
-              </p>
-            </div>
-          ) : (
-            filteredNotes.map((note) => (
-              <NoteItem key={note.id} note={note} onDelete={handleDeleteNote} />
-            ))
-          )}
+            ) : (
+              filteredNotes.map((note) => (
+                <NoteItem
+                  key={note.id}
+                  note={note}
+                  onDelete={handleDeleteNote}
+                  onClick={() => handleNoteClick(note.id)}
+                  isSelected={selectedNoteId === note.id}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Note Detail - Right Side */}
+      {selectedNote && (
+        <div className="w-1/2">
+          <NoteDetailView
+            note={selectedNote}
+            userId={userId}
+            onClose={() => setSelectedNoteId(null)}
+            onUpdate={handleNoteUpdate}
+          />
+        </div>
+      )}
     </div>
   );
 }
