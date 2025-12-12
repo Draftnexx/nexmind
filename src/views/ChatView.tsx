@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { ChatMessage } from "../types/note";
-import { loadChatMessages, addChatMessage } from "../storage/localStorage";
 import { generateId } from "../utils/classifyNote";
 import {
   generateEmbedding,
@@ -57,20 +56,18 @@ export default function ChatView({ userId }: ChatViewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const loadedMessages = loadChatMessages();
+    // DO NOT load old messages - start fresh every session
+    // This ensures clean state and no confusion with old data
 
-    // Begrüßungsnachricht wenn Chat leer ist
-    if (loadedMessages.length === 0) {
+    // Welcome message only if no messages yet
+    if (messages.length === 0) {
       const welcomeMessage: ChatMessage = {
         id: generateId(),
         content: "Hallo! Ich bin NexMind. Schreib mir deine Gedanken, Aufgaben oder Ideen – ich organisiere sie automatisch für dich. 🧠✨",
         role: "assistant",
         timestamp: new Date().toISOString(),
       };
-      addChatMessage(welcomeMessage);
       setMessages([welcomeMessage]);
-    } else {
-      setMessages(loadedMessages);
     }
   }, []);
 
@@ -90,7 +87,7 @@ export default function ChatView({ userId }: ChatViewProps) {
     setInput("");
     setIsProcessing(true);
 
-    // User-Nachricht hinzufügen
+    // User-Nachricht hinzufügen (SESSION ONLY - not persisted)
     const userMessage: ChatMessage = {
       id: generateId(),
       content: userContent,
@@ -98,8 +95,7 @@ export default function ChatView({ userId }: ChatViewProps) {
       timestamp: new Date().toISOString(),
     };
 
-    const updatedMessages = addChatMessage(userMessage);
-    setMessages([...updatedMessages]);
+    setMessages(prev => [...prev, userMessage]);
 
     // INTELLIGENCE LAYER V2: Chat mit Command-Interpretation
     try {
@@ -119,13 +115,13 @@ export default function ChatView({ userId }: ChatViewProps) {
 
         const graph = loadGraph();
         const createdNoteIds: string[] = [];
+        let successCount = 0;
 
         // Process each NLP item
         for (const nlpItem of nlpResult.items) {
           const embedding = await generateEmbedding(nlpItem.content);
 
           const newNoteId = generateId();
-          createdNoteIds.push(newNoteId);
 
           const newNote = {
             id: newNoteId,
@@ -149,11 +145,13 @@ export default function ChatView({ userId }: ChatViewProps) {
             } : {}),
           };
 
-          // CRITICAL FIX: Write to Supabase instead of localStorage
+          // CRITICAL: Write to Supabase and track success
           console.log(`💾 Inserting note "${nlpItem.category}" into Supabase:`, newNote.content.substring(0, 50));
           const success = await addNoteToSupabase(userId, newNote);
 
           if (success) {
+            successCount++;
+            createdNoteIds.push(newNoteId);
             console.log(`✅ Note successfully inserted into Supabase: ${newNoteId}`);
 
             // Update Knowledge Graph only if write succeeded
@@ -167,17 +165,23 @@ export default function ChatView({ userId }: ChatViewProps) {
 
         saveGraph(graph);
 
+        // CRITICAL: Only proceed if at least ONE note was written successfully
+        if (successCount === 0) {
+          console.error("❌ CRITICAL: NO notes were written to Supabase!");
+          throw new Error("Failed to write any notes to database");
+        }
+
         noteId = createdNoteIds[0];
 
-        console.log(`✨ Chat created ${nlpResult.items.length} note(s) via NLP Pipeline`);
-        console.log(`📊 Knowledge Graph updated from Chat`);
+        console.log(`✅ SUCCESS: ${successCount}/${nlpResult.items.length} note(s) written to Supabase`);
+        console.log(`📊 Knowledge Graph updated with ${successCount} note(s)`);
 
         // 3. Intelligente AI-Antwort generieren
         let replyText: string;
 
-        if (nlpResult.items.length > 1) {
+        if (successCount > 1) {
           // Multi-item reply with detailed breakdown
-          replyText = `Verstanden! Ich habe ${nlpResult.items.length} Einträge angelegt:\n\n`;
+          replyText = `Verstanden! Ich habe ${successCount} Einträge in der Datenbank angelegt:\n\n`;
 
           nlpResult.items.forEach((item, index) => {
             const emoji = item.category === "task" ? "✅" : item.category === "event" ? "📅" : item.category === "idea" ? "💡" : item.category === "person" ? "👤" : "📝";
@@ -201,7 +205,7 @@ export default function ChatView({ userId }: ChatViewProps) {
           if (nlpResult.contextSummary) {
             replyText += `💡 ${nlpResult.contextSummary}`;
           }
-        } else if (nlpResult.items.length === 1) {
+        } else if (successCount === 1) {
           // Single item - use AI for natural reply
           replyText = await getAIChatReplyV2(
             userContent,
@@ -220,9 +224,11 @@ export default function ChatView({ userId }: ChatViewProps) {
           if (details.length > 0) {
             replyText += `\n\n${details.join(" • ")}`;
           }
+
+          replyText += `\n\n✅ Gespeichert in Datenbank`;
         } else {
-          // Fallback
-          replyText = "Notiz gespeichert! 📝";
+          // Fallback (should not happen due to error check above)
+          replyText = "✅ Notiz gespeichert in Datenbank!";
         }
 
         const assistantMessage: ChatMessage = {
@@ -233,8 +239,7 @@ export default function ChatView({ userId }: ChatViewProps) {
           noteId,
         };
 
-        const finalMessages = addChatMessage(assistantMessage);
-        setMessages([...finalMessages]);
+        setMessages(prev => [...prev, assistantMessage]);
       } else {
         // Es ist eine Query - gebe intelligente Antwort
         const replyText = await getAIChatReplyV2(
@@ -251,11 +256,20 @@ export default function ChatView({ userId }: ChatViewProps) {
           timestamp: new Date().toISOString(),
         };
 
-        const finalMessages = addChatMessage(assistantMessage);
-        setMessages([...finalMessages]);
+        setMessages(prev => [...prev, assistantMessage]);
       }
     } catch (error) {
-      console.error("Error processing chat message:", error);
+      console.error("❌ Error processing chat message:", error);
+
+      // Show error message to user
+      const errorMessage: ChatMessage = {
+        id: generateId(),
+        content: `❌ Fehler beim Verarbeiten: ${error instanceof Error ? error.message : "Unbekannter Fehler"}. Bitte versuche es erneut.`,
+        role: "assistant",
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
