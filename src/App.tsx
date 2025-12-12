@@ -8,13 +8,13 @@ import TaskDashboardView from "./views/TaskDashboardView";
 import AISuggestionsView from "./views/AISuggestionsView";
 import AuthGate from "./components/AuthGate";
 import { NoteCategory } from "./types/note";
-import { loadNotes } from "./storage/localStorage";
 import { loadGraph, saveGraph, buildGraphFromNotes } from "./services/graph";
 import { generateProactiveSuggestions } from "./services/automation";
 import { addAISuggestion } from "./storage/localStorage";
 import { supabase } from "./lib/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { migrateLocalNotesToSupabase } from "./services/migrationService";
+import { fetchNotesFromSupabase } from "./services/notesRepository";
 
 type View = "notes" | "chat" | "brain" | "graph" | "tasks" | "ai";
 
@@ -71,8 +71,10 @@ function App() {
     };
   }, []);
 
-  // INTELLIGENCE SYSTEM INITIALIZATION
+  // INTELLIGENCE SYSTEM INITIALIZATION - Only after user is authenticated
   useEffect(() => {
+    if (!user) return;
+
     const initializeIntelligenceSystem = async () => {
       console.log("🚀 Initializing NexMind Intelligence System...");
 
@@ -93,12 +95,12 @@ function App() {
           }
         }
 
-        // 1. Initialize Knowledge Graph if empty or outdated
+        // 1. Initialize Knowledge Graph from Supabase notes
         const graph = loadGraph();
-        const notes = loadNotes();
+        const notes = await fetchNotesFromSupabase(user.id);
 
         if (graph.nodes.length === 0 && notes.length > 0) {
-          console.log("📊 Building Knowledge Graph from existing notes...");
+          console.log("📊 Building Knowledge Graph from Supabase notes...");
 
           // Extract topics from existing notes
           const topicsMap = new Map<string, string[]>();
@@ -139,12 +141,15 @@ function App() {
     };
 
     initializeIntelligenceSystem();
-  }, []);
+  }, [user]);
 
-  // Update category counts when notes change
+  // Update category counts from Supabase when user changes
   useEffect(() => {
-    const updateCounts = () => {
-      const notes = loadNotes();
+    if (!user) return;
+
+    const updateCounts = async () => {
+      console.log("📊 Loading category counts from Supabase...");
+      const notes = await fetchNotesFromSupabase(user.id);
       const counts: Record<NoteCategory | "all", number> = {
         all: notes.length,
         task: 0,
@@ -159,14 +164,15 @@ function App() {
       });
 
       setCategoryCounts(counts);
+      console.log("✅ Category counts updated:", counts);
     };
 
     updateCounts();
 
     // Poll for changes (simple approach for MVP)
-    const interval = setInterval(updateCounts, 1000);
+    const interval = setInterval(updateCounts, 5000); // Every 5 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // GLOBAL AUTOMATION SCHEDULER - Runs in background every 60 seconds
   useEffect(() => {
@@ -271,7 +277,7 @@ function App() {
 
       <main className="flex-1 overflow-hidden">
         {activeView === "notes" && <NotesView selectedCategory={selectedCategory} userId={user.id} />}
-        {activeView === "chat" && <ChatView />}
+        {activeView === "chat" && <ChatView userId={user.id} />}
         {activeView === "brain" && <BrainReportView />}
         {activeView === "graph" && <GraphView />}
         {activeView === "tasks" && <TaskDashboardView />}
