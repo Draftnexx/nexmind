@@ -11,6 +11,7 @@ import { loadNotes } from "./storage/localStorage";
 import { loadGraph, saveGraph, buildGraphFromNotes } from "./services/graph";
 import { generateProactiveSuggestions } from "./services/automation";
 import { addAISuggestion } from "./storage/localStorage";
+import { supabase } from "./lib/supabaseClient";
 
 type View = "notes" | "chat" | "brain" | "graph" | "tasks" | "ai";
 
@@ -33,6 +34,22 @@ function App() {
       console.log("🚀 Initializing NexMind Intelligence System...");
 
       try {
+        // 0. Supabase Connection Test
+        console.log("🔌 Testing Supabase connection...");
+        const { data, error } = await supabase
+          .from("notes")
+          .select("*")
+          .limit(1);
+
+        if (error) {
+          console.error("❌ Supabase connection error:", error.message);
+        } else {
+          console.log("✅ Supabase connected successfully");
+          if (data && data.length > 0) {
+            console.log(`📊 Found ${data.length} note(s) in Supabase`);
+          }
+        }
+
         // 1. Initialize Knowledge Graph if empty or outdated
         const graph = loadGraph();
         const notes = loadNotes();
