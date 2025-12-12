@@ -45,28 +45,23 @@ export async function migrateLocalNotesToSupabase(userId: string): Promise<void>
 
   for (const note of notes) {
     try {
-      // Map Note interface to Supabase schema
-      const { error } = await supabase.from("notes").insert({
-        id: note.id, // Keep original ID
-        user_id: userId,
-        content: note.content,
-        category: note.category,
-        created_at: note.createdAt,
-        updated_at: note.updatedAt ?? null,
+      // Skip notes with missing required fields
+      if (!note.content || !note.category) {
+        console.warn(`⚠️ Skipping note ${note.id}: missing content or category`);
+        errorCount++;
+        continue;
+      }
 
-        // Task-specific fields
-        status: note.status ?? null,
-        priority: note.priority ?? null,
-        due_date: note.dueDate ?? null,
+      // Map Note interface to Supabase schema - ONLY schema fields
+      const payload = {
+        user_id: userId,              // NOT NULL
+        content: note.content,        // NOT NULL
+        type: note.category,          // NOT NULL (category → type mapping)
+        status: note.status ?? null,     // NULLABLE
+        priority: note.priority ?? null, // NULLABLE
+      };
 
-        // Entities (stored as JSON)
-        entities: note.entities ?? null,
-
-        // AI metadata
-        embedding: note.embedding ?? null,
-        category_confidence: note.categoryConfidence ?? null,
-        category_reason: note.categoryReason ?? null,
-      });
+      const { error } = await supabase.from("notes").insert(payload);
 
       if (error) {
         console.error(`❌ Error migrating note ${note.id}:`, error.message);
